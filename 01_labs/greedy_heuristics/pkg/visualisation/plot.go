@@ -3,20 +3,24 @@ package visualisation
 import (
 	"fmt"
 	"image/color"
+	"math"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 
 	"github.com/czajkowskis/evolutionary_computation/01_labs/greedy_heuristics/pkg/data"
 )
 
-// PlotSolution draws a TSP path with (0,0) axes, correct arrowheads, and square scaling.
+// PlotSolution draws a TSP path with (0,0) axes, correct arrowheads, square scaling and cost-scaled node sizes and a blue gradient.
 func PlotSolution(nodes []data.Node, path []int, filename string,
 	xMin, xMax, yMin, yMax float64) error {
 
 	p := plot.New()
 	p.Title.Text = "TSP Solution"
+	p.X.Label.Text = "X"
+	p.Y.Label.Text = "Y"
 
 	// --- Prepare path points ---
 	pathPoints := make(plotter.XYs, len(path)+1)
@@ -35,21 +39,48 @@ func PlotSolution(nodes []data.Node, path []int, filename string,
 		allPoints[i].Y = float64(n.Y)
 	}
 
+	// ---- Cost range  ----
+	minCost, maxCost := nodes[0].Cost, nodes[0].Cost
+	for _, n := range nodes {
+		if n.Cost < minCost {
+			minCost = n.Cost
+		}
+		if n.Cost > maxCost {
+			maxCost = n.Cost
+		}
+	}
+
 	// --- Path line ---
 	line, _ := plotter.NewLine(pathPoints)
 	line.Color = color.RGBA{R: 255, A: 255}
 	line.Width = vg.Points(1.5)
 
-	// --- Scatter plots ---
-	allScatter, _ := plotter.NewScatter(allPoints)
-	allScatter.GlyphStyle.Color = color.RGBA{B: 255, A: 255}
-	allScatter.GlyphStyle.Radius = vg.Points(3)
+	// ---- Scatter with size and color by cost ----
+	scatter, _ := plotter.NewScatter(allPoints)
+	scatter.GlyphStyleFunc = func(i int) draw.GlyphStyle {
+		r := scaleCostToRadius(nodes[i].Cost, minCost, maxCost, vg.Points(2.5), vg.Points(5.5))
+		c := costToBlue(nodes[i].Cost, minCost, maxCost) // light -> dark blue gradient
+		return draw.GlyphStyle{
+			Color:  c,
+			Radius: r,
+			Shape:  draw.CircleGlyph{},
+		}
+	}
 
-	pathScatter, _ := plotter.NewScatter(pathPoints[:len(path)])
-	pathScatter.GlyphStyle.Color = color.RGBA{G: 255, A: 255}
-	pathScatter.GlyphStyle.Radius = vg.Points(4)
+	// ---- Highlight path nodes as small black crosses so they stand out ----
+	var pathScatter *plotter.Scatter
+	if len(path) > 0 {
+		pathScatter, _ = plotter.NewScatter(pathPoints[:len(path)])
+		pathScatter.GlyphStyle.Color = color.Black
+		pathScatter.GlyphStyle.Radius = vg.Points(3.0)
+		pathScatter.GlyphStyle.Shape = draw.CrossGlyph{}
+	}
 
-	p.Add(line, allScatter, pathScatter)
+	p.Add(line, scatter)
+	if pathScatter != nil {
+		p.Add(pathScatter)
+	}
+	p.Add(plotter.NewGrid())
 
 	// --- Determine axis bounds ---
 	if xMin > 0 {
@@ -60,6 +91,9 @@ func PlotSolution(nodes []data.Node, path []int, filename string,
 	}
 
 	// enforce a square coordinate area (equal scaling)
+	xRange := xMax - xMin
+	yRange := yMax - yMin
+	maxRange := math.Max(xRange, yRange)
 	p.X.Min, p.Y.Min = 0, 0
 	p.X.Max, p.Y.Max = xMax, yMax
 
@@ -74,10 +108,70 @@ func PlotSolution(nodes []data.Node, path []int, filename string,
 
 	p.Add(xAxis, yAxis)
 
+	// --- Add arrowheads at the positive ends ---
+	arrowSize := maxRange * 0.02 // 2 % of the larger axis range
+
+	// --- X-axis arrow  ---
+	ax1Pts := plotter.XYs{{X: xMax - arrowSize, Y: 0.25 * arrowSize}, {X: xMax, Y: 0}}
+	ax2Pts := plotter.XYs{{X: xMax - arrowSize, Y: -0.25 * arrowSize}, {X: xMax, Y: 0}}
+	ax1, _ := plotter.NewLine(ax1Pts)
+	ax2, _ := plotter.NewLine(ax2Pts)
+	ax1.Color, ax2.Color = color.Black, color.Black
+	p.Add(ax1, ax2)
+
+	// --- Y-axis arrow  ---
+	// compensate for aspect ratio so the arrow looks the same visually
+	aspect := (xMax - xMin) / (yMax - yMin)
+	lengthRatio := 0.75 // slight shortening to visually match X arrow
+	ay1Pts := plotter.XYs{{X: -0.25 * arrowSize * aspect, Y: yMax - arrowSize*lengthRatio}, {X: 0, Y: yMax}}
+	ay2Pts := plotter.XYs{{X: 0.25 * arrowSize * aspect, Y: yMax - arrowSize*lengthRatio}, {X: 0, Y: yMax}}
+	ay1, _ := plotter.NewLine(ay1Pts)
+	ay2, _ := plotter.NewLine(ay2Pts)
+	ay1.Color, ay2.Color = color.Black, color.Black
+	p.Add(ay1, ay2)
+
 	// --- Save the plot ---
 	if err := p.Save(6*vg.Inch, 6*vg.Inch, fmt.Sprintf("%s.png", filename)); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// Size scaling: map int cost -> radius in [minR, maxR].
+func scaleCostToRadius(cost, minCost, maxCost int, minR, maxR vg.Length) vg.Length {
+	if maxCost == minCost {
+		return (minR + maxR) / 2
+	}
+	n := float64(cost-minCost) / float64(maxCost-minCost)
+	return minR + vg.Length(n)*(maxR-minR)
+}
+
+// Single-hue blue gradient (light -> dark) low: #c6dbef, high: #084594.
+func costToBlue(cost, minCost, maxCost int) color.RGBA {
+	low := color.RGBA{R: 0xC6, G: 0xDB, B: 0xEF, A: 0xFF}  // light blue
+	high := color.RGBA{R: 0x08, G: 0x45, B: 0x94, A: 0xFF} // dark blue
+	if maxCost == minCost {
+		return low
+	}
+	n := float64(cost-minCost) / float64(maxCost-minCost) // 0..1
+	return lerpRGBA(low, high, n)
+}
+
+func lerpRGBA(a, b color.RGBA, t float64) color.RGBA {
+	clamp := func(x float64) uint8 {
+		if x < 0 {
+			return 0
+		}
+		if x > 255 {
+			return 255
+		}
+		return uint8(x + 0.5)
+	}
+	return color.RGBA{
+		R: clamp(float64(a.R) + (float64(b.R)-float64(a.R))*t),
+		G: clamp(float64(a.G) + (float64(b.G)-float64(a.G))*t),
+		B: clamp(float64(a.B) + (float64(b.B)-float64(a.B))*t),
+		A: 255,
+	}
 }
