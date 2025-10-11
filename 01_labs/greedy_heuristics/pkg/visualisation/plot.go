@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"os"
+	"path/filepath"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -14,11 +16,35 @@ import (
 )
 
 // PlotSolution draws a TSP path with (0,0) axes, correct arrowheads, square scaling and cost-scaled node sizes and a blue gradient.
-func PlotSolution(nodes []data.Node, path []int, filename string,
+func PlotSolution(nodes []data.Node, path []int, title string, filename string,
 	xMin, xMax, yMin, yMax float64) error {
 
 	p := plot.New()
-	p.Title.Text = "TSP Solution"
+
+	// --- Add title inside the plot ---
+
+	xCenter := xMin + (xMax-xMin)/2
+	labels, err := plotter.NewLabels(plotter.XYLabels{
+		XYs: []plotter.XY{
+			{X: xCenter, Y: yMax},
+		},
+		Labels: []string{title},
+	})
+	if err != nil {
+		return err
+	}
+	labels.Offset.Y = vg.Points(25)
+	if len(labels.TextStyle) > 0 {
+		labels.TextStyle[0].Font.Size = vg.Points(14)
+		labels.TextStyle[0].XAlign = draw.XCenter
+		labels.TextStyle[0].YAlign = draw.YTop
+	}
+	p.Add(labels)
+
+	// Move axes to origin
+	p.X.LineStyle.Width = 0
+	p.Y.LineStyle.Width = 0
+
 	p.X.Label.Text = "X"
 	p.Y.Label.Text = "Y"
 
@@ -131,7 +157,12 @@ func PlotSolution(nodes []data.Node, path []int, filename string,
 	p.Add(ay1, ay2)
 
 	// --- Save the plot ---
-	if err := p.Save(6*vg.Inch, 6*vg.Inch, fmt.Sprintf("%s.png", filename)); err != nil {
+	plotDir := "output_plots"
+	if err := os.MkdirAll(plotDir, 0755); err != nil {
+		return err
+	}
+	filePath := filepath.Join(plotDir, fmt.Sprintf("%s.png", filename))
+	if err := p.Save(8*vg.Inch, 8*vg.Inch, filePath); err != nil {
 		return err
 	}
 

@@ -2,48 +2,53 @@ package algorithms
 
 import (
 	"math"
-	"math/rand"
 
 	"github.com/czajkowskis/evolutionary_computation/01_labs/greedy_heuristics/pkg/data"
 )
 
-func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, numSolutions int) []Solution {
+func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []int) []Solution {
 	n := len(nodes)
+	if n == 0 {
+		return nil
+	}
 	k := (n + 1) / 2
 	var solutions []Solution
 
-	for i := 0; i < numSolutions; i++ {
-		startNode := rand.Intn(n)
-		path := []int{startNode}
+	for _, startNodeIndex := range startNodeIndices {
+		path := []int{startNodeIndex}
 		unvisited := make(map[int]bool)
 		for j := 0; j < n; j++ {
-			if j != startNode {
+			if j != startNodeIndex {
 				unvisited[j] = true
 			}
 		}
 
 		for len(path) < k {
-			lastNode := path[len(path)-1]
-			nearestNode := -1
+			lastNodeIndex := path[len(path)-1]
+			nearestNodeIndex := -1
 			minDistance := math.MaxInt32
 
-			for node := range unvisited {
-				if distanceMatrix[lastNode][node] < minDistance {
-					minDistance = distanceMatrix[lastNode][node]
-					nearestNode = node
+			for nodeIndex := range unvisited {
+				if distanceMatrix[lastNodeIndex][nodeIndex] < minDistance {
+					minDistance = distanceMatrix[lastNodeIndex][nodeIndex]
+					nearestNodeIndex = nodeIndex
 				}
 			}
 
-			if nearestNode != -1 {
-				path = append(path, nearestNode)
-				delete(unvisited, nearestNode)
+			if nearestNodeIndex != -1 {
+				path = append(path, nearestNodeIndex)
+				delete(unvisited, nearestNodeIndex)
+			} else {
+				break
 			}
 		}
 
 		totalDistance := 0
-		for j := 0; j < k; j++ {
-			next := (j + 1) % k
-			totalDistance += distanceMatrix[path[j]][path[next]]
+		if len(path) > 1 {
+			for j := 0; j < len(path); j++ {
+				next := (j + 1) % len(path)
+				totalDistance += distanceMatrix[path[j]][path[next]]
+			}
 		}
 
 		totalCost := 0
@@ -57,56 +62,59 @@ func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, numSolutions 
 	return solutions
 }
 
-func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, numSolutions int) []Solution {
+func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []int) []Solution {
 	n := len(nodes)
+	if n == 0 {
+		return nil
+	}
 	k := (n + 1) / 2
 	var solutions []Solution
 
-	for i := 0; i < numSolutions; i++ {
-		startNode := rand.Intn(n)
-		path := []int{startNode}
+	for _, startNodeIndex := range startNodeIndices {
+		path := []int{startNodeIndex}
 		unvisited := make(map[int]bool)
 		for j := 0; j < n; j++ {
-			if j != startNode {
+			if j != startNodeIndex {
 				unvisited[j] = true
 			}
 		}
 
+		totalDistance := 0
 		for len(path) < k {
-			bestIncrease := math.MaxInt32
-			bestNode := -1
+			minIncrease := math.MaxInt32
+			bestNodeIndex := -1
 			bestPosition := -1
 
-			for node := range unvisited {
+			for nodeIndex := range unvisited {
 				for pos := 0; pos <= len(path); pos++ {
 					var increase int
-					if pos == 0 {
-						increase = distanceMatrix[path[0]][node] + distanceMatrix[node][path[len(path)-1]] - distanceMatrix[path[0]][path[len(path)-1]]
-					} else if pos == len(path) {
-						increase = distanceMatrix[path[len(path)-1]][node] + distanceMatrix[node][path[0]] - distanceMatrix[path[len(path)-1]][path[0]]
+					if len(path) == 1 {
+						increase = distanceMatrix[path[0]][nodeIndex] * 2
 					} else {
-						increase = distanceMatrix[path[pos-1]][node] + distanceMatrix[node][path[pos]] - distanceMatrix[path[pos-1]][path[pos]]
+						prevIdx := (pos - 1 + len(path)) % len(path)
+						currIdx := pos % len(path)
+						increase = distanceMatrix[path[prevIdx]][nodeIndex] + distanceMatrix[nodeIndex][path[currIdx]] - distanceMatrix[path[prevIdx]][path[currIdx]]
 					}
 
-					if increase < bestIncrease {
-						bestIncrease = increase
-						bestNode = node
+					if increase < minIncrease {
+						minIncrease = increase
+						bestNodeIndex = nodeIndex
 						bestPosition = pos
 					}
 				}
 			}
 
-			if bestNode != -1 {
-				path = append(path[:bestPosition+1], path[bestPosition:]...)
-				path[bestPosition] = bestNode
-				delete(unvisited, bestNode)
+			if bestNodeIndex != -1 {
+				if bestPosition == len(path) {
+					path = append(path, bestNodeIndex)
+				} else {
+					path = append(path[:bestPosition], append([]int{bestNodeIndex}, path[bestPosition:]...)...)
+				}
+				totalDistance += minIncrease
+				delete(unvisited, bestNodeIndex)
+			} else {
+				break
 			}
-		}
-
-		totalDistance := 0
-		for j := 0; j < k; j++ {
-			next := (j + 1) % k
-			totalDistance += distanceMatrix[path[j]][path[next]]
 		}
 
 		totalCost := 0
