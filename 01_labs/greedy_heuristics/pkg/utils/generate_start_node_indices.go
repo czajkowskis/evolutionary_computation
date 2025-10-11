@@ -1,12 +1,11 @@
 package utils
 
-import "math/rand"
-
-// GenerateStartNodeIndices creates a list of random starting node indices for the algorithms.
-func GenerateStartNodeIndices(n, numSolutions int) []int {
-	startNodeIndices := make([]int, numSolutions)
-	for i := 0; i < numSolutions; i++ {
-		startNodeIndices[i] = rand.Intn(n)
+// GenerateStartNodeIndices creates a list of starting node indices for the algorithms,
+// using each node index once.
+func GenerateStartNodeIndices(n int) []int {
+	startNodeIndices := make([]int, n)
+	for i := 0; i < n; i++ {
+		startNodeIndices[i] = i
 	}
 	return startNodeIndices
 }

@@ -19,10 +19,12 @@ func measureExecutionTime(algorithm func() []algorithms.Solution) ([]algorithms.
 	return solutions, elapsed
 }
 
-func processInstance(instanceName string, nodes []data.Node, distanceMatrix [][]int, numSolutions int) {
+func processInstance(instanceName string, nodes []data.Node, distanceMatrix [][]int) {
 	fmt.Printf("Instance %s Statistics:\n", instanceName)
 
-	startNodeIndices := utils.GenerateStartNodeIndices(len(nodes), numSolutions)
+	startNodeIndices := utils.GenerateStartNodeIndices(len(nodes))
+	numSolutions := len(startNodeIndices)
+	fmt.Println(startNodeIndices)
 
 	// Apply algorithms
 	solutionSets := make(map[string][]algorithms.Solution)
@@ -59,9 +61,11 @@ func processInstance(instanceName string, nodes []data.Node, distanceMatrix [][]
 		if len(solutions) > 0 {
 			min, max, avg := utils.CalculateStatistics(solutions)
 			avgTime := float64(executionTimes[name].Nanoseconds()) / float64(numSolutions) / 1e6
-			fmt.Printf("%s: min = %d, max = %d, average = %.2f, avg_time = %.4f ms\n", name, min, max, avg, avgTime)
+			// fmt.Printf("%s: min = %d, max = %d, average = %.2f, avg_time = %.4f ms\n", name, min, max, avg, avgTime)
+			fmt.Printf("%s: %.2f(%d,%d), avg_time = %.4f ms\n", name, avg, min, max, avgTime)
 
 			bestSolution := algorithms.FindBestSolution(solutions)
+			fmt.Printf("Best path: %v\n", bestSolution.Path)
 			name_to_title := map[string]string{
 				"Random_Solution":               "Random Solution",
 				"Nearest_Neighbor_End_Only":     "Nearest Neighbor (End Only)",
@@ -96,10 +100,7 @@ func main() {
 	distanceMatrixA := data.CalculateDistanceMatrix(nodesA)
 	distanceMatrixB := data.CalculateDistanceMatrix(nodesB)
 
-	// Define the number of solutions to generate
-	numSolutions := 500
-
-	processInstance("A", nodesA, distanceMatrixA, numSolutions)
+	processInstance("A", nodesA, distanceMatrixA)
 	fmt.Println()
-	processInstance("B", nodesB, distanceMatrixB, numSolutions)
+	processInstance("B", nodesB, distanceMatrixB)
 }
