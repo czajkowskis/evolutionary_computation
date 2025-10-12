@@ -25,7 +25,6 @@ func processInstance(instanceName string, nodes []data.Node) {
 	distanceMatrix := data.CalculateDistanceMatrix(nodes)
 	startNodeIndices := utils.GenerateStartNodeIndices(len(nodes))
 	numSolutions := len(startNodeIndices)
-	fmt.Println(startNodeIndices)
 
 	nodeCosts := make([]int, len(nodes))
 	for i, node := range nodes {
