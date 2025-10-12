@@ -26,17 +26,18 @@ func GreedyCycle(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []i
 
 		// Second node: choose the nearest neighbor to the start node
 		if len(unvisited) > 0 {
-			nearestNodeIndex := -1
-			minDistance := math.MaxInt32
+			bestNodeIndex := -1
+			minScore := math.MaxInt32
 			for nodeIndex := range unvisited {
-				if distanceMatrix[startNodeIndex][nodeIndex] < minDistance {
-					minDistance = distanceMatrix[startNodeIndex][nodeIndex]
-					nearestNodeIndex = nodeIndex
+				score := 2*distanceMatrix[startNodeIndex][nodeIndex] + nodes[nodeIndex].Cost
+				if score < minScore {
+					minScore = score
+					bestNodeIndex = nodeIndex
 				}
 			}
-			if nearestNodeIndex != -1 {
-				path = append(path, nearestNodeIndex)
-				delete(unvisited, nearestNodeIndex)
+			if bestNodeIndex != -1 {
+				path = append(path, bestNodeIndex)
+				delete(unvisited, bestNodeIndex)
 			}
 		}
 
@@ -44,15 +45,16 @@ func GreedyCycle(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []i
 		for len(path) < k && len(unvisited) > 0 {
 			bestNodeIndex := -1
 			bestPosition := -1
-			minIncrease := math.MaxInt32
+			minIncreaseScore := math.MaxInt32
 
 			for nodeIndex := range unvisited {
 				for i := 0; i < len(path); i++ {
 					p1 := path[i]
 					p2 := path[(i+1)%len(path)]
-					increase := distanceMatrix[p1][nodeIndex] + distanceMatrix[nodeIndex][p2] - distanceMatrix[p1][p2]
-					if increase < minIncrease {
-						minIncrease = increase
+					deltaDist := distanceMatrix[p1][nodeIndex] + distanceMatrix[nodeIndex][p2] - distanceMatrix[p1][p2]
+					increaseScore := deltaDist + nodes[nodeIndex].Cost
+					if increaseScore < minIncreaseScore {
+						minIncreaseScore = increaseScore
 						bestNodeIndex = nodeIndex
 						bestPosition = i + 1
 					}

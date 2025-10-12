@@ -25,19 +25,20 @@ func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 
 		for len(path) < k {
 			lastNodeIndex := path[len(path)-1]
-			nearestNodeIndex := -1
-			minDistance := math.MaxInt32
+			bestNodeIndex := -1
+			minScore := math.MaxInt32
 
 			for nodeIndex := range unvisited {
-				if distanceMatrix[lastNodeIndex][nodeIndex] < minDistance {
-					minDistance = distanceMatrix[lastNodeIndex][nodeIndex]
-					nearestNodeIndex = nodeIndex
+				score := distanceMatrix[lastNodeIndex][nodeIndex] + nodes[nodeIndex].Cost
+				if score < minScore {
+					minScore = score
+					bestNodeIndex = nodeIndex
 				}
 			}
 
-			if nearestNodeIndex != -1 {
-				path = append(path, nearestNodeIndex)
-				delete(unvisited, nearestNodeIndex)
+			if bestNodeIndex != -1 {
+				path = append(path, bestNodeIndex)
+				delete(unvisited, bestNodeIndex)
 			} else {
 				break
 			}
@@ -86,21 +87,51 @@ func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 			bestPosition := -1
 
 			for nodeIndex := range unvisited {
-				for pos := 0; pos <= len(path); pos++ {
-					var increase int
-					if len(path) == 1 {
-						increase = distanceMatrix[path[0]][nodeIndex] * 2
-					} else {
-						prevIdx := (pos - 1 + len(path)) % len(path)
-						currIdx := pos % len(path)
-						increase = distanceMatrix[path[prevIdx]][nodeIndex] + distanceMatrix[nodeIndex][path[currIdx]] - distanceMatrix[path[prevIdx]][path[currIdx]]
-					}
+				localMinIncrease := math.MaxInt32
+				localBestPos := -1
 
-					if increase < minIncrease {
-						minIncrease = increase
-						bestNodeIndex = nodeIndex
-						bestPosition = pos
+				if len(path) == 1 {
+					// Path has only one node -> we can only insert before or after it
+					inc := distanceMatrix[nodeIndex][path[0]] + nodes[nodeIndex].Cost
+					if inc < localMinIncrease {
+						localMinIncrease = inc
+						localBestPos = 0
 					}
+					inc = distanceMatrix[path[0]][nodeIndex] + nodes[nodeIndex].Cost
+					if inc < localMinIncrease {
+						localMinIncrease = inc
+						localBestPos = 1
+					}
+				} else {
+					// Insert at the beginning
+					incFront := distanceMatrix[nodeIndex][path[0]] + nodes[nodeIndex].Cost
+					if incFront < localMinIncrease {
+						localMinIncrease = incFront
+						localBestPos = 0
+					}
+					// Insert at the end
+					incBack := distanceMatrix[path[len(path)-1]][nodeIndex] + nodes[nodeIndex].Cost
+					if incBack < localMinIncrease {
+						localMinIncrease = incBack
+						localBestPos = len(path)
+					}
+					// Insert in the middle
+					for pos := 1; pos < len(path); pos++ {
+						a := path[pos-1]
+						b := path[pos]
+						deltaDist := distanceMatrix[a][nodeIndex] + distanceMatrix[nodeIndex][b] - distanceMatrix[a][b]
+						inc := deltaDist + nodes[nodeIndex].Cost
+						if inc < localMinIncrease {
+							localMinIncrease = inc
+							localBestPos = pos
+						}
+					}
+				}
+
+				if localMinIncrease < minIncrease {
+					minIncrease = localMinIncrease
+					bestNodeIndex = nodeIndex
+					bestPosition = localBestPos
 				}
 			}
 
@@ -110,10 +141,17 @@ func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 				} else {
 					path = append(path[:bestPosition], append([]int{bestNodeIndex}, path[bestPosition:]...)...)
 				}
-				totalDistance += minIncrease
 				delete(unvisited, bestNodeIndex)
 			} else {
 				break
+			}
+		}
+
+		totalDistance = 0
+		if len(path) > 1 {
+			for j := 0; j < len(path); j++ {
+				next := (j + 1) % len(path)
+				totalDistance += distanceMatrix[path[j]][path[next]]
 			}
 		}
 
