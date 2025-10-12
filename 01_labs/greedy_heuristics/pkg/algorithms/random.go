@@ -2,13 +2,11 @@ package algorithms
 
 import (
 	"math/rand"
-
-	"github.com/czajkowskis/evolutionary_computation/01_labs/greedy_heuristics/pkg/data"
 )
 
 // RandomSolution generates random solutions starting from a given set of start node indices.
-func RandomSolution(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []int) []Solution {
-	n := len(nodes)
+func RandomSolution(distanceMatrix [][]int, nodeCosts []int, startNodeIndices []int) []Solution {
+	n := len(nodeCosts)
 	if n == 0 {
 		return nil
 	}
@@ -54,7 +52,7 @@ func RandomSolution(nodes []data.Node, distanceMatrix [][]int, startNodeIndices 
 
 		totalCost := 0
 		for _, idx := range path {
-			totalCost += nodes[idx].Cost
+			totalCost += nodeCosts[idx]
 		}
 
 		objective := totalDistance + totalCost

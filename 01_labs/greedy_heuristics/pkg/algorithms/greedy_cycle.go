@@ -2,13 +2,11 @@ package algorithms
 
 import (
 	"math"
-
-	"github.com/czajkowskis/evolutionary_computation/01_labs/greedy_heuristics/pkg/data"
 )
 
 // GreedyCycle generates solutions using a greedy cycle algorithm.
-func GreedyCycle(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []int) []Solution {
-	n := len(nodes)
+func GreedyCycle(distanceMatrix [][]int, nodeCosts []int, startNodeIndices []int) []Solution {
+	n := len(nodeCosts)
 	if n == 0 {
 		return nil
 	}
@@ -29,7 +27,7 @@ func GreedyCycle(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []i
 			bestNodeIndex := -1
 			minScore := math.MaxInt32
 			for nodeIndex := range unvisited {
-				score := 2*distanceMatrix[startNodeIndex][nodeIndex] + nodes[nodeIndex].Cost
+				score := 2*distanceMatrix[startNodeIndex][nodeIndex] + nodeCosts[nodeIndex]
 				if score < minScore {
 					minScore = score
 					bestNodeIndex = nodeIndex
@@ -52,7 +50,7 @@ func GreedyCycle(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []i
 					p1 := path[i]
 					p2 := path[(i+1)%len(path)]
 					deltaDist := distanceMatrix[p1][nodeIndex] + distanceMatrix[nodeIndex][p2] - distanceMatrix[p1][p2]
-					increaseScore := deltaDist + nodes[nodeIndex].Cost
+					increaseScore := deltaDist + nodeCosts[nodeIndex]
 					if increaseScore < minIncreaseScore {
 						minIncreaseScore = increaseScore
 						bestNodeIndex = nodeIndex
@@ -78,7 +76,7 @@ func GreedyCycle(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []i
 
 		totalCost := 0
 		for _, idx := range path {
-			totalCost += nodes[idx].Cost
+			totalCost += nodeCosts[idx]
 		}
 
 		objective := totalDistance + totalCost
