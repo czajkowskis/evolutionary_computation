@@ -19,12 +19,18 @@ func measureExecutionTime(algorithm func() []algorithms.Solution) ([]algorithms.
 	return solutions, elapsed
 }
 
-func processInstance(instanceName string, nodes []data.Node, distanceMatrix [][]int) {
+func processInstance(instanceName string, nodes []data.Node) {
 	fmt.Printf("Instance %s Statistics:\n", instanceName)
 
+	distanceMatrix := data.CalculateDistanceMatrix(nodes)
 	startNodeIndices := utils.GenerateStartNodeIndices(len(nodes))
 	numSolutions := len(startNodeIndices)
 	fmt.Println(startNodeIndices)
+
+	nodeCosts := make([]int, len(nodes))
+	for i, node := range nodes {
+		nodeCosts[i] = node.Cost
+	}
 
 	// Apply algorithms
 	solutionSets := make(map[string][]algorithms.Solution)
@@ -34,25 +40,25 @@ func processInstance(instanceName string, nodes []data.Node, distanceMatrix [][]
 	var elapsed time.Duration
 
 	solutions, elapsed = measureExecutionTime(func() []algorithms.Solution {
-		return algorithms.RandomSolution(nodes, distanceMatrix, startNodeIndices)
+		return algorithms.RandomSolution(distanceMatrix, nodeCosts, startNodeIndices)
 	})
 	solutionSets["Random_Solution"] = solutions
 	executionTimes["Random_Solution"] = elapsed
 
 	solutions, elapsed = measureExecutionTime(func() []algorithms.Solution {
-		return algorithms.NearestNeighborEnd(nodes, distanceMatrix, startNodeIndices)
+		return algorithms.NearestNeighborEnd(distanceMatrix, nodeCosts, startNodeIndices)
 	})
 	solutionSets["Nearest_Neighbor_End_Only"] = solutions
 	executionTimes["Nearest_Neighbor_End_Only"] = elapsed
 
 	solutions, elapsed = measureExecutionTime(func() []algorithms.Solution {
-		return algorithms.NearestNeighborAny(nodes, distanceMatrix, startNodeIndices)
+		return algorithms.NearestNeighborAny(distanceMatrix, nodeCosts, startNodeIndices)
 	})
 	solutionSets["Nearest_Neighbor_Any_Position"] = solutions
 	executionTimes["Nearest_Neighbor_Any_Position"] = elapsed
 
 	solutions, elapsed = measureExecutionTime(func() []algorithms.Solution {
-		return algorithms.GreedyCycle(nodes, distanceMatrix, startNodeIndices)
+		return algorithms.GreedyCycle(distanceMatrix, nodeCosts, startNodeIndices)
 	})
 	solutionSets["Greedy_Cycle"] = solutions
 	executionTimes["Greedy_Cycle"] = elapsed
@@ -96,11 +102,7 @@ func main() {
 		log.Fatalf("Error reading TSPB.csv: %v", err)
 	}
 
-	// Calculate distance matrices
-	distanceMatrixA := data.CalculateDistanceMatrix(nodesA)
-	distanceMatrixB := data.CalculateDistanceMatrix(nodesB)
-
-	processInstance("A", nodesA, distanceMatrixA)
+	processInstance("A", nodesA)
 	fmt.Println()
-	processInstance("B", nodesB, distanceMatrixB)
+	processInstance("B", nodesB)
 }

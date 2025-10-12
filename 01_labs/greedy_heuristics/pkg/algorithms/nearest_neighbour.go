@@ -2,12 +2,10 @@ package algorithms
 
 import (
 	"math"
-
-	"github.com/czajkowskis/evolutionary_computation/01_labs/greedy_heuristics/pkg/data"
 )
 
-func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []int) []Solution {
-	n := len(nodes)
+func NearestNeighborEnd(distanceMatrix [][]int, nodeCosts []int, startNodeIndices []int) []Solution {
+	n := len(nodeCosts)
 	if n == 0 {
 		return nil
 	}
@@ -29,7 +27,7 @@ func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 			minScore := math.MaxInt32
 
 			for nodeIndex := range unvisited {
-				score := distanceMatrix[lastNodeIndex][nodeIndex] + nodes[nodeIndex].Cost
+				score := distanceMatrix[lastNodeIndex][nodeIndex] + nodeCosts[nodeIndex]
 				if score < minScore {
 					minScore = score
 					bestNodeIndex = nodeIndex
@@ -54,7 +52,7 @@ func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 
 		totalCost := 0
 		for _, idx := range path {
-			totalCost += nodes[idx].Cost
+			totalCost += nodeCosts[idx]
 		}
 
 		objective := totalDistance + totalCost
@@ -63,8 +61,8 @@ func NearestNeighborEnd(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 	return solutions
 }
 
-func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndices []int) []Solution {
-	n := len(nodes)
+func NearestNeighborAny(distanceMatrix [][]int, nodeCosts []int, startNodeIndices []int) []Solution {
+	n := len(nodeCosts)
 	if n == 0 {
 		return nil
 	}
@@ -92,25 +90,25 @@ func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 
 				if len(path) == 1 {
 					// Path has only one node -> we can only insert before or after it
-					inc := distanceMatrix[nodeIndex][path[0]] + nodes[nodeIndex].Cost
+					inc := distanceMatrix[nodeIndex][path[0]] + nodeCosts[nodeIndex]
 					if inc < localMinIncrease {
 						localMinIncrease = inc
 						localBestPos = 0
 					}
-					inc = distanceMatrix[path[0]][nodeIndex] + nodes[nodeIndex].Cost
+					inc = distanceMatrix[path[0]][nodeIndex] + nodeCosts[nodeIndex]
 					if inc < localMinIncrease {
 						localMinIncrease = inc
 						localBestPos = 1
 					}
 				} else {
 					// Insert at the beginning
-					incFront := distanceMatrix[nodeIndex][path[0]] + nodes[nodeIndex].Cost
+					incFront := distanceMatrix[nodeIndex][path[0]] + nodeCosts[nodeIndex]
 					if incFront < localMinIncrease {
 						localMinIncrease = incFront
 						localBestPos = 0
 					}
 					// Insert at the end
-					incBack := distanceMatrix[path[len(path)-1]][nodeIndex] + nodes[nodeIndex].Cost
+					incBack := distanceMatrix[path[len(path)-1]][nodeIndex] + nodeCosts[nodeIndex]
 					if incBack < localMinIncrease {
 						localMinIncrease = incBack
 						localBestPos = len(path)
@@ -120,7 +118,7 @@ func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 						a := path[pos-1]
 						b := path[pos]
 						deltaDist := distanceMatrix[a][nodeIndex] + distanceMatrix[nodeIndex][b] - distanceMatrix[a][b]
-						inc := deltaDist + nodes[nodeIndex].Cost
+						inc := deltaDist + nodeCosts[nodeIndex]
 						if inc < localMinIncrease {
 							localMinIncrease = inc
 							localBestPos = pos
@@ -157,7 +155,7 @@ func NearestNeighborAny(nodes []data.Node, distanceMatrix [][]int, startNodeIndi
 
 		totalCost := 0
 		for _, idx := range path {
-			totalCost += nodes[idx].Cost
+			totalCost += nodeCosts[idx]
 		}
 
 		objective := totalDistance + totalCost
