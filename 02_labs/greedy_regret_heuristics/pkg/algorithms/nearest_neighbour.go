@@ -42,16 +42,12 @@ func NearestNeighborWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, s
 
 				for pos := 0; pos <= len(path); pos++ {
 					var insertionCost int
-					if len(path) == 1 {
-						insertionCost = distanceMatrix[path[0]][nodeIndex] + nodeCosts[nodeIndex]
-					} else if pos == 0 {
-						insertionCost = distanceMatrix[nodeIndex][path[0]] +
-							distanceMatrix[nodeIndex][path[len(path)-1]] +
-							nodeCosts[nodeIndex]
+					if pos == 0 {
+						// Insert at the beginning of the path
+						insertionCost = distanceMatrix[nodeIndex][path[0]] + nodeCosts[nodeIndex]
 					} else if pos == len(path) {
-						insertionCost = distanceMatrix[path[len(path)-1]][nodeIndex] +
-							distanceMatrix[nodeIndex][path[0]] +
-							nodeCosts[nodeIndex]
+						// Insert at the end of the path
+						insertionCost = distanceMatrix[path[len(path)-1]][nodeIndex] + nodeCosts[nodeIndex]
 					} else {
 						prev := path[pos-1]
 						next := path[pos]

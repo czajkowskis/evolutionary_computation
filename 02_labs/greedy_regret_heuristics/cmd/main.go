@@ -51,13 +51,13 @@ func processInstance(instanceName string, nodes []data.Node) {
 	executionTimes["Greedy_Cycle_Two_Regret"] = elapsed
 
 	solutions, elapsed = measureExecutionTime(func() []algorithms.Solution {
-		return algorithms.NearestNeighborWeightedTwoRegret(distanceMatrix, nodeCosts, startNodeIndices, 1, 1)
+		return algorithms.NearestNeighborWeightedTwoRegret(distanceMatrix, nodeCosts, startNodeIndices, 0, 1)
 	})
 	solutionSets["Nearest_Neighbor_Weighted_Sum"] = solutions
 	executionTimes["Nearest_Neighbor_Weighted_Sum"] = elapsed
 
 	solutions, elapsed = measureExecutionTime(func() []algorithms.Solution {
-		return algorithms.GreedyCycleWeightedTwoRegret(distanceMatrix, nodeCosts, startNodeIndices, 1, 1)
+		return algorithms.GreedyCycleWeightedTwoRegret(distanceMatrix, nodeCosts, startNodeIndices, 0, 1)
 	})
 	solutionSets["Greedy_Cycle_Weighted_Sum"] = solutions
 	executionTimes["Greedy_Cycle_Weighted_Sum"] = elapsed
