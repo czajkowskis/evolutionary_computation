@@ -2,6 +2,7 @@ package algorithms
 
 import (
 	"math"
+	"sort"
 )
 
 // GreedyCycle generates solutions using a greedy cycle algorithm.
@@ -86,6 +87,11 @@ func GreedyCycleWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, start
 				}
 			}
 
+			// Sort insertionInfos to ensure deterministic iteration order for tie-breaking
+			sort.Slice(insertionInfos, func(i, j int) bool {
+				return insertionInfos[i].nodeIndex < insertionInfos[j].nodeIndex
+			})
+
 			// Avoid division by zero
 			if maxPossibleRegret == 0 {
 				maxPossibleRegret = 1
@@ -108,7 +114,7 @@ func GreedyCycleWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, start
 				normalizedObjective := float64(info.bestCost) / maxPossibleObjective
 
 				score := regretWeight*normalizedRegret - objectiveWeight*normalizedObjective
-				if score > bestScore {
+				if score >= bestScore {
 					bestScore = score
 					bestNodeIndex = info.nodeIndex
 					bestPosition = info.bestPosition

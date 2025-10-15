@@ -2,6 +2,7 @@ package algorithms
 
 import (
 	"math"
+	"sort"
 )
 
 func NearestNeighborWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, startNodeIndices []int, regretWeight float64, objectiveWeight float64) []Solution {
@@ -78,6 +79,11 @@ func NearestNeighborWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, s
 					maxPossibleObjective = float64(bestLocalCost)
 				}
 			}
+
+			// Sort insertionInfos to ensure deterministic iteration order for tie-breaking
+			sort.Slice(insertionInfos, func(i, j int) bool {
+				return insertionInfos[i].nodeIndex < insertionInfos[j].nodeIndex
+			})
 
 			// Avoid division by zero
 			if maxPossibleRegret == 0 {
