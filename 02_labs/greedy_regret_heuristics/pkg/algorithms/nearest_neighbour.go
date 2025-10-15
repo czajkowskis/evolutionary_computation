@@ -23,72 +23,23 @@ func NearestNeighborWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, s
 		}
 
 		for len(path) < k {
-			bestScore := math.Inf(-1)
-			bestNodeIndex := -1
-			bestPosition := -1
-
-			// Find maximum possible regret and objective for normalization
 			maxPossibleRegret := 0.0
 			maxPossibleObjective := 0.0
 
-			// First pass to find normalization values
-			for nodeIndex := range unvisited {
-				bestLocalCost := math.MaxInt32
-				secondBestLocalCost := math.MaxInt32
-
-				for pos := 0; pos <= len(path); pos++ {
-					var insertionCost int
-					if len(path) == 1 {
-						insertionCost = distanceMatrix[path[0]][nodeIndex] + nodeCosts[nodeIndex]
-					} else if pos == 0 {
-						insertionCost = distanceMatrix[nodeIndex][path[0]] +
-							distanceMatrix[nodeIndex][path[len(path)-1]] +
-							nodeCosts[nodeIndex]
-					} else if pos == len(path) {
-						insertionCost = distanceMatrix[path[len(path)-1]][nodeIndex] +
-							distanceMatrix[nodeIndex][path[0]] +
-							nodeCosts[nodeIndex]
-					} else {
-						prev := path[pos-1]
-						next := path[pos]
-						insertionCost = distanceMatrix[prev][nodeIndex] +
-							distanceMatrix[nodeIndex][next] -
-							distanceMatrix[prev][next] +
-							nodeCosts[nodeIndex]
-					}
-
-					if insertionCost < bestLocalCost {
-						secondBestLocalCost = bestLocalCost
-						bestLocalCost = insertionCost
-					} else if insertionCost < secondBestLocalCost {
-						secondBestLocalCost = insertionCost
-					}
-				}
-
-				regret := secondBestLocalCost - bestLocalCost
-				if float64(regret) > maxPossibleRegret {
-					maxPossibleRegret = float64(regret)
-				}
-				if float64(bestLocalCost) > maxPossibleObjective {
-					maxPossibleObjective = float64(bestLocalCost)
-				}
+			type insertionInfo struct {
+				nodeIndex      int
+				bestCost       int
+				secondBestCost int
+				bestPosition   int
 			}
+			var insertionInfos []insertionInfo
 
-			// Avoid division by zero
-			if maxPossibleRegret == 0 {
-				maxPossibleRegret = 1
-			}
-			if maxPossibleObjective == 0 {
-				maxPossibleObjective = 1
-			}
-
-			// Second pass to find best node using normalized values
+			// Single pass to calculate costs and find normalization values
 			for nodeIndex := range unvisited {
 				bestLocalCost := math.MaxInt32
 				secondBestLocalCost := math.MaxInt32
 				bestPos := -1
 
-				// Calculate insertion costs for all positions
 				for pos := 0; pos <= len(path); pos++ {
 					var insertionCost int
 					if len(path) == 1 {
@@ -118,49 +69,70 @@ func NearestNeighborWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, s
 						secondBestLocalCost = insertionCost
 					}
 				}
+				insertionInfos = append(insertionInfos, insertionInfo{nodeIndex, bestLocalCost, secondBestLocalCost, bestPos})
 
-				// Normalize values
-				normalizedRegret := float64(secondBestLocalCost-bestLocalCost) / maxPossibleRegret
-				normalizedObjective := float64(bestLocalCost) / maxPossibleObjective
+				if secondBestLocalCost == math.MaxInt32 {
+					secondBestLocalCost = bestLocalCost
+				}
+				regret := secondBestLocalCost - bestLocalCost
+				if float64(regret) > maxPossibleRegret {
+					maxPossibleRegret = float64(regret)
+				}
+				if float64(bestLocalCost) > maxPossibleObjective {
+					maxPossibleObjective = float64(bestLocalCost)
+				}
+			}
 
-				// Calculate weighted score
-				score := (regretWeight * normalizedRegret) - (objectiveWeight * normalizedObjective)
+			// Avoid division by zero
+			if maxPossibleRegret == 0 {
+				maxPossibleRegret = 1
+			}
+			if maxPossibleObjective == 0 {
+				maxPossibleObjective = 1
+			}
 
+			bestScore := math.Inf(-1)
+			bestNodeIndex := -1
+			bestPosition := -1
+
+			// Find the best node to insert using the stored information
+			for _, info := range insertionInfos {
+				if info.secondBestCost == math.MaxInt32 {
+					info.secondBestCost = info.bestCost
+				}
+				regret := info.secondBestCost - info.bestCost
+				normalizedRegret := float64(regret) / maxPossibleRegret
+				normalizedObjective := float64(info.bestCost) / maxPossibleObjective
+
+				score := regretWeight*normalizedRegret - objectiveWeight*normalizedObjective
 				if score > bestScore {
 					bestScore = score
-					bestNodeIndex = nodeIndex
-					bestPosition = bestPos
+					bestNodeIndex = info.nodeIndex
+					bestPosition = info.bestPosition
 				}
 			}
 
 			if bestNodeIndex != -1 {
-				// Insert the node with highest score at its best position
-				if bestPosition == len(path) {
-					path = append(path, bestNodeIndex)
-				} else {
-					path = append(path[:bestPosition], append([]int{bestNodeIndex}, path[bestPosition:]...)...)
-				}
+				path = append(path[:bestPosition], append([]int{bestNodeIndex}, path[bestPosition:]...)...)
 				delete(unvisited, bestNodeIndex)
 			} else {
-				break
+				break // No more nodes can be inserted
 			}
 		}
 
-		totalDistance := 0
+		objective := 0
 		if len(path) > 1 {
-			for j := 0; j < len(path); j++ {
-				next := (j + 1) % len(path)
-				totalDistance += distanceMatrix[path[j]][path[next]]
+			for i := 0; i < len(path)-1; i++ {
+				objective += distanceMatrix[path[i]][path[i+1]]
 			}
+			objective += distanceMatrix[path[len(path)-1]][path[0]]
+		}
+		for _, nodeIndex := range path {
+			objective += nodeCosts[nodeIndex]
 		}
 
-		totalCost := 0
-		for _, idx := range path {
-			totalCost += nodeCosts[idx]
-		}
-
-		objective := totalDistance + totalCost
-		solutions = append(solutions, Solution{path, objective})
+		solutions = append(solutions, Solution{Path: path, Objective: objective})
 	}
+
 	return solutions
 }
