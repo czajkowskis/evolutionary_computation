@@ -2,6 +2,7 @@ package algorithms
 
 import (
 	"math"
+	"sort"
 )
 
 // GreedyCycle generates solutions using a greedy cycle algorithm.
@@ -41,51 +42,18 @@ func GreedyCycleWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, start
 
 		// Build the rest of the path using greedy insertion with regret
 		for len(path) < k && len(unvisited) > 0 {
-			bestScore := math.Inf(-1)
-			bestNodeIndex := -1
-			bestPosition := -1
-
-			// Find maximum possible regret and objective for normalization
 			maxPossibleRegret := 0.0
 			maxPossibleObjective := 0.0
 
-			// First pass to find normalization values
-			for nodeIndex := range unvisited {
-				bestLocalCost := math.MaxInt32
-				secondBestLocalCost := math.MaxInt32
-
-				for i := 0; i < len(path); i++ {
-					p1 := path[i]
-					p2 := path[(i+1)%len(path)]
-					deltaDist := distanceMatrix[p1][nodeIndex] + distanceMatrix[nodeIndex][p2] - distanceMatrix[p1][p2]
-					insertionCost := deltaDist + nodeCosts[nodeIndex]
-
-					if insertionCost < bestLocalCost {
-						secondBestLocalCost = bestLocalCost
-						bestLocalCost = insertionCost
-					} else if insertionCost < secondBestLocalCost {
-						secondBestLocalCost = insertionCost
-					}
-				}
-
-				regret := secondBestLocalCost - bestLocalCost
-				if float64(regret) > maxPossibleRegret {
-					maxPossibleRegret = float64(regret)
-				}
-				if float64(bestLocalCost) > maxPossibleObjective {
-					maxPossibleObjective = float64(bestLocalCost)
-				}
+			type insertionInfo struct {
+				nodeIndex      int
+				bestCost       int
+				secondBestCost int
+				bestPosition   int
 			}
+			var insertionInfos []insertionInfo
 
-			// Avoid division by zero
-			if maxPossibleRegret == 0 {
-				maxPossibleRegret = 1
-			}
-			if maxPossibleObjective == 0 {
-				maxPossibleObjective = 1
-			}
-
-			// Second pass to find best node using normalized values
+			// Single pass to calculate costs and find normalization values
 			for nodeIndex := range unvisited {
 				bestLocalCost := math.MaxInt32
 				secondBestLocalCost := math.MaxInt32
@@ -100,47 +68,80 @@ func GreedyCycleWeightedTwoRegret(distanceMatrix [][]int, nodeCosts []int, start
 					if insertionCost < bestLocalCost {
 						secondBestLocalCost = bestLocalCost
 						bestLocalCost = insertionCost
-						bestPos = i + 1
+						bestPos = i
 					} else if insertionCost < secondBestLocalCost {
 						secondBestLocalCost = insertionCost
 					}
 				}
+				insertionInfos = append(insertionInfos, insertionInfo{nodeIndex, bestLocalCost, secondBestLocalCost, bestPos})
 
-				// Normalize values
-				normalizedRegret := float64(secondBestLocalCost-bestLocalCost) / maxPossibleRegret
-				normalizedObjective := float64(bestLocalCost) / maxPossibleObjective
+				if secondBestLocalCost == math.MaxInt32 {
+					secondBestLocalCost = bestLocalCost
+				}
+				regret := secondBestLocalCost - bestLocalCost
+				if float64(regret) > maxPossibleRegret {
+					maxPossibleRegret = float64(regret)
+				}
+				if float64(bestLocalCost) > maxPossibleObjective {
+					maxPossibleObjective = float64(bestLocalCost)
+				}
+			}
 
-				// Calculate weighted score
-				score := (regretWeight * normalizedRegret) - (objectiveWeight * normalizedObjective)
+			// Sort insertionInfos to ensure deterministic iteration order for tie-breaking
+			sort.Slice(insertionInfos, func(i, j int) bool {
+				return insertionInfos[i].nodeIndex < insertionInfos[j].nodeIndex
+			})
 
-				if score > bestScore {
+			// Avoid division by zero
+			if maxPossibleRegret == 0 {
+				maxPossibleRegret = 1
+			}
+			if maxPossibleObjective == 0 {
+				maxPossibleObjective = 1
+			}
+
+			bestScore := math.Inf(-1)
+			bestNodeIndex := -1
+			bestPosition := -1
+
+			// Find the best node to insert using the stored information
+			for _, info := range insertionInfos {
+				if info.secondBestCost == math.MaxInt32 {
+					info.secondBestCost = info.bestCost
+				}
+				regret := info.secondBestCost - info.bestCost
+				normalizedRegret := float64(regret) / maxPossibleRegret
+				normalizedObjective := float64(info.bestCost) / maxPossibleObjective
+
+				score := regretWeight*normalizedRegret - objectiveWeight*normalizedObjective
+				if score >= bestScore {
 					bestScore = score
-					bestNodeIndex = nodeIndex
-					bestPosition = bestPos
+					bestNodeIndex = info.nodeIndex
+					bestPosition = info.bestPosition
 				}
 			}
 
 			if bestNodeIndex != -1 {
-				path = append(path[:bestPosition], append([]int{bestNodeIndex}, path[bestPosition:]...)...)
+				// Insert the best node at the best position
+				bestPositionIndex := bestPosition + 1
+				path = append(path[:bestPositionIndex], append([]int{bestNodeIndex}, path[bestPositionIndex:]...)...)
 				delete(unvisited, bestNodeIndex)
 			} else {
-				break
+				break // No more nodes can be inserted
 			}
 		}
 
-		totalDistance := 0
-		if len(path) > 1 {
+		// Calculate final objective value
+		objective := 0
+		if len(path) > 0 {
 			for i := 0; i < len(path); i++ {
-				totalDistance += distanceMatrix[path[i]][path[(i+1)%len(path)]]
+				objective += distanceMatrix[path[i]][path[(i+1)%len(path)]]
+			}
+			for _, nodeIndex := range path {
+				objective += nodeCosts[nodeIndex]
 			}
 		}
 
-		totalCost := 0
-		for _, idx := range path {
-			totalCost += nodeCosts[idx]
-		}
-
-		objective := totalDistance + totalCost
 		solutions = append(solutions, Solution{Path: path, Objective: objective})
 	}
 
