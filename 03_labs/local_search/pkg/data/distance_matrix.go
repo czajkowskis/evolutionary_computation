@@ -1,6 +1,7 @@
 package data
 
 import (
+	"log"
 	"math"
 )
 
@@ -21,5 +22,6 @@ func CalculateDistanceMatrix(nodes []Node) [][]int {
 			}
 		}
 	}
+	log.Printf("Calculated distance matrix for %d nodes", n)
 	return distanceMatrix
 }

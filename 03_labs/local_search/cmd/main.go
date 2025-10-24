@@ -13,6 +13,8 @@ import (
 )
 
 func processInstance(instanceName string, nodes []data.Node) {
+	log.Printf("Processing instance %s with %d nodes", instanceName, len(nodes))
+
 	fmt.Printf("Instance %s Statistics:\n", instanceName)
 
 	// Odległości (po wczytaniu pracujemy wyłącznie na macierzy D i wektorze kosztów)
@@ -49,11 +51,13 @@ func processInstance(instanceName string, nodes []data.Node) {
 	var rows []Row
 
 	for _, m := range methods {
+		log.Printf("Starting method: %s for instance %s", m.Name, instanceName)
 		start := time.Now()
 		solutions := algorithms.RunLocalSearchBatch(D, costs, startNodeIndices, m, numSolutions)
 		batchTime := time.Since(start)
 
 		if len(solutions) == 0 {
+			log.Printf("No solutions found for method %s", m.Name)
 			continue
 		}
 		minVal, maxVal, avgVal := utils.CalculateStatistics(solutions)
@@ -70,6 +74,8 @@ func processInstance(instanceName string, nodes []data.Node) {
 			BestPath:  best.Path,
 			BestValue: best.Objective,
 		})
+
+		log.Printf("Completed method %s: best value %d, avg time %.2f ms", m.Name, best.Objective, avgTimeMs)
 
 		// Wykres najlepszej ścieżki (opcjonalny; granice dopasuj do swoich instancji)
 		title := fmt.Sprintf("Best %s Solution for Instance %s", m.Name, instanceName)
@@ -96,6 +102,8 @@ func processInstance(instanceName string, nodes []data.Node) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
+	log.Println("Starting evolutionary computation local search program")
+
 	// Wczytanie dwóch instancji (ścieżki jak w Twoim projekcie)
 	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
 	if err != nil {
@@ -109,4 +117,6 @@ func main() {
 	processInstance("A", nodesA)
 	fmt.Println()
 	processInstance("B", nodesB)
+
+	log.Println("Program execution completed")
 }

@@ -3,6 +3,7 @@ package algorithms
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 )
@@ -147,7 +148,7 @@ func RunLocalSearchBatch(D [][]int, costs []int, startNodeIndices []int, m Metho
 
 	solutions := make([]Solution, 0, runs)
 	for r := 0; r < runs; r++ {
-		fmt.Printf("Node %d:\n", r)
+		log.Printf("Starting run %d/%d for method %s", r+1, runs, m.Name)
 		var s *solution
 		switch m.Start {
 		case StartRandom:
@@ -543,7 +544,10 @@ func lsSteepest(s *solution, intra IntraType) {
 	if k <= 1 {
 		return
 	}
+	iteration := 0
 	for {
+		iteration++
+		log.Printf("Steepest iteration %d, current obj: %d", iteration, s.obj)
 		bestDelta := 0
 		moveKind := 0 // 0 none, 1 swap, 2 2opt, 3 exchange
 		a, b, posS := 0, 0, -1
@@ -592,8 +596,10 @@ func lsSteepest(s *solution, intra IntraType) {
 		}
 
 		if moveKind == 0 || bestDelta >= 0 {
+			log.Printf("Steepest finished after %d iterations, final obj: %d", iteration, s.obj)
 			return
 		}
+		log.Printf("Applying move type %d with delta %d", moveKind, bestDelta)
 		switch moveKind {
 		case 1:
 			s.applySwap(a, b, bestDelta)
@@ -625,7 +631,10 @@ func lsGreedy(s *solution, intra IntraType, rng *rand.Rand, interFirstProb float
 		return rng.Float64() < interFirstProb
 	}
 
+	iteration := 0
 	for {
+		iteration++
+		log.Printf("Greedy iteration %d, current obj: %d", iteration, s.obj)
 		improved := false
 
 		// Losujemy kolejność typów ruchów (z wagą interFirstProb)
@@ -749,6 +758,7 @@ func lsGreedy(s *solution, intra IntraType, rng *rand.Rand, interFirstProb float
 		}
 
 		if !improved {
+			log.Printf("Greedy finished after %d iterations, final obj: %d", iteration, s.obj)
 			return
 		}
 	}

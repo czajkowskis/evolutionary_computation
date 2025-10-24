@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/csv"
+	"log"
 	"os"
 	"strconv"
 )
@@ -36,5 +37,6 @@ func ReadNodes(filename string) ([]Node, error) {
 		}
 		nodes = append(nodes, Node{x, y, cost})
 	}
+	log.Printf("Read %d nodes from %s", len(nodes), filename)
 	return nodes, nil
 }
