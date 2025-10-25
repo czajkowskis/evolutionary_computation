@@ -157,7 +157,7 @@ func PlotSolution(nodes []data.Node, path []int, title string, filename string,
 	p.Add(ay1, ay2)
 
 	// --- Save the plot ---
-	plotDir := "output_plots"
+	plotDir := "output/plots"
 	if err := os.MkdirAll(plotDir, 0755); err != nil {
 		return err
 	}

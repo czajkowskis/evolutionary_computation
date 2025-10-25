@@ -23,7 +23,7 @@ go.work.sum
 .vscode/
 
 # Generated images
-output_plots/
+output/
 
 # Log files
 *.log
