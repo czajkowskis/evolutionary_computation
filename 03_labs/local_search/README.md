@@ -1,6 +1,6 @@
-# Lab 02: Greedy Regret Heuristics for Travelling Salesperson Problem with Node Costs 
+# Lab 03: Local Search for Travelling Salesperson Problem with Node Costs 
 
-**Implementation of greedy regret heuristics for solving the Travelling Salesperson Problem with node costs and Euclidean distances.**
+**Implementation of local search algorithms for solving the Travelling Salesperson Problem with node costs and Euclidean distances.**
 
 ---
 
@@ -16,14 +16,18 @@ Given a set of nodes in a plane, each defined by:
 
 ---
 
-## Implemented Methods
+## Implemented Local Search combinations (LS type, intra-moves, start type)
 
-1. **Nearest Neighbor (2-regret)**
-2. **Nearest Neighbor (Weighted Sum)**
-3. **Greedy Cycle (2-regret)**
-4. **Greedy Cycle (Weighted Sum)**
+1. **Steepest, Two-nodes, Random**
+2. **Steepest, Two-nodes, Greedy**
+3. **Steepest, Two-edges, Random**
+4. **Steepest, Two-edges, Greedy**
+5. **Greedy, Two-nodes, Random**
+6. **Greedy, Two-nodes, Greedy**
+7. **Greedy, Two-edges, Random**
+8. **Greedy, Two-edges, Greedy**
 
-For each method, **200 solutions** are generated starting from each node.
+For each method, **200 solutions** are generated.
 
 ---
 
