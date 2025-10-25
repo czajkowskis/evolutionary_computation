@@ -17,10 +17,9 @@ func processInstance(instanceName string, nodes []data.Node) {
 
 	fmt.Printf("Instance %s Statistics:\n", instanceName)
 
-	// Odległości (po wczytaniu pracujemy wyłącznie na macierzy D i wektorze kosztów)
 	D := data.CalculateDistanceMatrix(nodes)
 	startNodeIndices := utils.GenerateStartNodeIndices(len(nodes))
-	numSolutions := 200 // liczba uruchomień na metodę
+	numSolutions := 200
 
 	costs := make([]int, len(nodes))
 	for i, node := range nodes {
@@ -28,31 +27,22 @@ func processInstance(instanceName string, nodes []data.Node) {
 	}
 
 	methods := []algorithms.MethodSpec{
-		{LS: algorithms.LS_Steepest, Intra: algorithms.IntraSwap, Start: algorithms.StartRandom, Name: "Steepest + Swap + Random"},
-		// {LS: algorithms.LS_Steepest, Intra: algorithms.IntraSwap, Start: algorithms.StartGreedy, Name: "Steepest + Swap + GreedyStart"},
-		// {LS: algorithms.LS_Steepest, Intra: algorithms.Intra2Opt, Start: algorithms.StartRandom, Name: "Steepest + 2-opt + Random"},
-		// {LS: algorithms.LS_Steepest, Intra: algorithms.Intra2Opt, Start: algorithms.StartGreedy, Name: "Steepest + 2-opt + GreedyStart"},
-		// {LS: algorithms.LS_Greedy, Intra: algorithms.IntraSwap, Start: algorithms.StartRandom, Name: "Greedy + Swap + Random"},
-		// {LS: algorithms.LS_Greedy, Intra: algorithms.IntraSwap, Start: algorithms.StartGreedy, Name: "Greedy + Swap + GreedyStart"},
-		// {LS: algorithms.LS_Greedy, Intra: algorithms.Intra2Opt, Start: algorithms.StartRandom, Name: "Greedy + 2-opt + Random"},
-		// {LS: algorithms.LS_Greedy, Intra: algorithms.Intra2Opt, Start: algorithms.StartGreedy, Name: "Greedy + 2-opt + GreedyStart"},
+		{LS: algorithms.LS_Steepest, Intra: algorithms.IntraSwap, Start: algorithms.StartRandom, Name: "Steepest_Swap_Random"},
+		{LS: algorithms.LS_Steepest, Intra: algorithms.IntraSwap, Start: algorithms.StartGreedy, Name: "Steepest_Swap_GreedyStart"},
+		{LS: algorithms.LS_Steepest, Intra: algorithms.Intra2Opt, Start: algorithms.StartRandom, Name: "Steepest_2-opt_Random"},
+		{LS: algorithms.LS_Steepest, Intra: algorithms.Intra2Opt, Start: algorithms.StartGreedy, Name: "Steepest_2-opt_GreedyStart"},
+		{LS: algorithms.LS_Greedy, Intra: algorithms.IntraSwap, Start: algorithms.StartRandom, Name: "Greedy_Swap_Random"},
+		{LS: algorithms.LS_Greedy, Intra: algorithms.IntraSwap, Start: algorithms.StartGreedy, Name: "Greedy_Swap_GreedyStart"},
+		{LS: algorithms.LS_Greedy, Intra: algorithms.Intra2Opt, Start: algorithms.StartRandom, Name: "Greedy_2-opt_Random"},
+		{LS: algorithms.LS_Greedy, Intra: algorithms.Intra2Opt, Start: algorithms.StartGreedy, Name: "Greedy_2-opt_GreedyStart"},
 	}
 
-	// Zbierz wyniki do tabel
-	type Row struct {
-		Name      string
-		AvgV      float64
-		MinV      int
-		MaxV      int
-		AvgTms    float64
-		BestPath  []int
-		BestValue int
-	}
-	var rows []Row
+	var rows []utils.Row
 
 	for _, m := range methods {
 		log.Printf("Starting method: %s for instance %s", m.Name, instanceName)
 		start := time.Now()
+
 		solutions := algorithms.RunLocalSearchBatch(D, costs, startNodeIndices, m, numSolutions)
 		batchTime := time.Since(start)
 
@@ -65,7 +55,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 
 		best := algorithms.FindBestSolution(solutions)
 
-		rows = append(rows, Row{
+		rows = append(rows, utils.Row{
 			Name:      m.Name,
 			AvgV:      avgVal,
 			MinV:      minVal,
@@ -77,7 +67,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 
 		log.Printf("Completed method %s: best value %d, avg time %.2f ms", m.Name, best.Objective, avgTimeMs)
 
-		// Wykres najlepszej ścieżki (opcjonalny; granice dopasuj do swoich instancji)
+		// Plots for the best solutions
 		title := fmt.Sprintf("Best %s Solution for Instance %s", m.Name, instanceName)
 		fileName := utils.SanitizeFileName(fmt.Sprintf("Best_%s_Solution_%s", m.Name, instanceName))
 		if err := visualisation.PlotSolution(nodes, best.Path, title, fileName, 0, 4000, 0, 2000); err != nil {
@@ -85,17 +75,24 @@ func processInstance(instanceName string, nodes []data.Node) {
 		}
 	}
 
-	// Tabela wartości celu
+	// Print results to console
 	fmt.Println("Objective value: av (min, max)")
 	for _, r := range rows {
 		fmt.Printf("%-34s  %.2f (%d, %d)\n", r.Name, r.AvgV, r.MinV, r.MaxV)
+		fmt.Printf("Best path: %v\n", r.BestPath)
 	}
 	fmt.Println()
 
-	// Tabela czasów (średni czas jednego uruchomienia)
 	fmt.Println("Average time per run [ms]:")
 	for _, r := range rows {
 		fmt.Printf("%-34s  %.4f\n", r.Name, r.AvgTms)
+	}
+
+	// Save results to CSV
+	if err := utils.WriteResultsCSV(instanceName, rows); err != nil {
+		log.Printf("CSV write error for instance %s: %v", instanceName, err)
+	} else {
+		log.Printf("CSV results saved for instance %s", instanceName)
 	}
 }
 
@@ -104,7 +101,6 @@ func main() {
 
 	log.Println("Starting evolutionary computation local search program")
 
-	// Wczytanie dwóch instancji (ścieżki jak w Twoim projekcie)
 	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
 	if err != nil {
 		log.Fatalf("Error reading TSPA.csv: %v", err)
