@@ -148,7 +148,7 @@ func buildCandidates(D [][]int, costs []int, K int) CandData {
 			if v == u {
 				continue
 			}
-			w := D[u][v] + costs[u]
+			w := D[u][v] + costs[v]
 			nbs = append(nbs, nb{v: v, w: w})
 		}
 		sort.Slice(nbs, func(i, j int) bool { return nbs[i].w < nbs[j].w })
