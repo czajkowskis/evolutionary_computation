@@ -12,9 +12,6 @@ type IntraType int
 type StartType int
 
 type MethodSpec struct {
-	LS      LSType
-	Intra   IntraType
-	Start   StartType
 	Name    string
 	UseCand bool // should use candidate moves?
 	CandK   int  // how many nearest to include in candidate list
@@ -103,6 +100,22 @@ func applyTwoOpt(path []int, i, j int) {
 	}
 }
 
+func applyTwoOptAndUpdatePos(path []int, posOf []int, i, j int) {
+	n := len(path)
+	if i == j || nextIdx(i, n) == j || nextIdx(j, n) == i {
+		return
+	}
+	if i > j {
+		i, j = j, i
+	}
+	// reverse segment [i+1..j]
+	for l, r := i+1, j; l < r; l, r = l+1, r-1 {
+		vl, vr := path[l], path[r]
+		path[l], path[r] = vr, vl
+		posOf[vl], posOf[vr] = r, l
+	}
+}
+
 func applyExchangeSelected(path []int, i int, u int) { path[i] = u }
 
 // Candidate data structure
@@ -119,6 +132,7 @@ func packEdge(a, b int) uint64 {
 	return uint64(uint32(a))<<32 | uint64(uint32(b))
 }
 
+// Build K nearest per node by weight = D[u][v] + cost[u]
 func buildCandidates(D [][]int, costs []int, K int) CandData {
 	n := len(D)
 	if K <= 0 {
@@ -128,30 +142,27 @@ func buildCandidates(D [][]int, costs []int, K int) CandData {
 	isCand := make(map[uint64]struct{}, n*K*2)
 
 	for u := 0; u < n; u++ {
-		type nb struct {
-			v    int
-			wght int
-		}
+		type nb struct{ v, w int }
 		nbs := make([]nb, 0, n-1)
 		for v := 0; v < n; v++ {
 			if v == u {
 				continue
 			}
-			// "nearest" as D[u][v] + cost[u]
 			w := D[u][v] + costs[u]
-			nbs = append(nbs, nb{v: v, wght: w})
+			nbs = append(nbs, nb{v: v, w: w})
 		}
-		sort.Slice(nbs, func(i, j int) bool { return nbs[i].wght < nbs[j].wght })
+		sort.Slice(nbs, func(i, j int) bool { return nbs[i].w < nbs[j].w })
 		m := K
-		if len(nbs) < m {
+		if m > len(nbs) {
 			m = len(nbs)
 		}
-		cand[u] = make([]int, 0, m)
+		list := make([]int, m)
 		for i := 0; i < m; i++ {
 			v := nbs[i].v
-			cand[u] = append(cand[u], v)
+			list[i] = v
 			isCand[packEdge(u, v)] = struct{}{}
 		}
+		cand[u] = list
 	}
 	return CandData{CandList: cand, isCand: isCand}
 }
@@ -217,7 +228,7 @@ func localSearchSteepestBaseline(D [][]int, costs []int, init Solution) Solution
 //   - if n2 is in the cycle and not a neighbor of n1 -> consider two 2-opt moves introducing (n1,n2):
 //     A) remove (n1,next(n1)) and (n2,next(n2)) -> add (n1,n2) +(next(n1),next(n2)) -> applyTwoOpt(i, j)
 //     B) remove (prev(n1),n1) and (prev(n2),n2) -> add (n1,n2) +(prev(n1),prev(n2)) -> applyTwoOpt(prev(i), prev(j))
-//   - if n2 is not in the cycle -> this is part of inter (below), also exclusively candidate-based
+//   - if n2 is not in the cycle -> consider inter at position i with u=n2 only if (prev(i),u) or (u,next(i)) is candidate
 
 func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd CandData) Solution {
 	path := append([]int(nil), init.Path...)
@@ -234,6 +245,9 @@ func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd Can
 		inSel[v] = true
 	}
 
+	visitMark := make([]int, len(D))
+	epoch := 0
+
 	for {
 		bestDelta := 0
 		var bestMove func()
@@ -243,9 +257,8 @@ func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd Can
 			n1 := path[i]
 			ip1 := nextIdx(i, n)
 			im1 := prevIdx(i, n)
-			a := n1
 
-			for _, n2 := range cd.CandList[a] {
+			for _, n2 := range cd.CandList[n1] {
 				j := posOf[n2]
 				if j == -1 {
 					continue // n2 is not selected -> this is not intra, but inter
@@ -253,85 +266,83 @@ func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd Can
 				if j == i || j == ip1 || j == im1 {
 					continue // neighbors/degenerate
 				}
-				// MOVE A: cuts (i,i+1) and (j,j+1) -> 2-opt(i,j)
-				{
-					dlA := deltaTwoOpt(D, path, i, j)
-					if dlA < bestDelta {
+
+				// Prune symmetric duplicates: evaluate pair only when j > i for move A.
+				if j > i {
+					// MOVE A: 2-opt(i, j)  (cuts (i,i+1) & (j,j+1))
+					if dlA := deltaTwoOpt(D, path, i, j); dlA < bestDelta {
 						ii, jj := i, j
 						bestDelta = dlA
 						bestMove = func() {
-							applyTwoOpt(path, ii, jj)
-							for x := range posOf {
-								posOf[x] = -1
-							}
-							for p, v := range path {
-								posOf[v] = p
-							}
+							applyTwoOptAndUpdatePos(path, posOf, ii, jj)
 						}
 					}
 				}
-				// MOVE B: cuts (i-1,i) and (j-1,j) -> 2-opt(prev(i), prev(j))
-				{
-					ii := prevIdx(i, n)
-					jj := prevIdx(j, n)
-					// check degeneracy for these two edges
-					if ii != jj && n > 3 && !(nextIdx(ii, n) == jj || nextIdx(jj, n) == ii) {
-						// delta 2-opt for (ii, jj) corresponds to move B
-						dlB := deltaTwoOpt(D, path, ii, jj)
-						if dlB < bestDelta {
-							iii, jjj := ii, jj
-							bestDelta = dlB
-							bestMove = func() {
-								applyTwoOpt(path, iii, jjj)
-								for x := range posOf {
-									posOf[x] = -1
-								}
-								for p, v := range path {
-									posOf[v] = p
-								}
-							}
-						}
+
+				// MOVE B: 2-opt(prev(i), prev(j)) (cuts (i-1,i) & (j-1,j))
+				ii := prevIdx(i, n)
+				jj := prevIdx(j, n)
+				if dlB := deltaTwoOpt(D, path, ii, jj); dlB < bestDelta {
+					iii, jjj := ii, jj
+					bestDelta = dlB
+					bestMove = func() {
+						applyTwoOptAndUpdatePos(path, posOf, iii, jjj)
 					}
 				}
 			}
 		}
 
-		// inter
-		// allow only if at least one of the introduced edges is a candidate edge (a,u) or (u,b)
-		// where a = prev(path[i]), b = next(path[i])
-
+		// inter - allow only if at least one of the introduced edges is a candidate edge (a,u) or (u,b), where a = prev(path[i]), b = next(path[i])
 		for i := 0; i < n; i++ {
 			a := path[prevIdx(i, n)]
 			b := path[nextIdx(i, n)]
 
-			// candidates = cand[a] ∪ cand[b]
-			seen := make(map[int]struct{}, len(cd.CandList[a])+len(cd.CandList[b]))
+			epoch++
+			// Iterate cand[a]
 			for _, u := range cd.CandList[a] {
-				seen[u] = struct{}{}
-			}
-			for _, u := range cd.CandList[b] {
-				seen[u] = struct{}{}
-			}
-
-			for u := range seen {
+				if visitMark[u] == epoch {
+					continue
+				}
+				visitMark[u] = epoch
 				if inSel[u] {
 					continue
 				}
-				// safety: check that at least one new edge is a candidate
+				// must introduce at least one candidate edge
 				if !(isCandidateEdge(cd, a, u) || isCandidateEdge(cd, b, u)) {
 					continue
 				}
-				dl := deltaExchangeSelected(D, costs, path, i, u)
-				if dl < bestDelta {
+				if dl := deltaExchangeSelected(D, costs, path, i, u); dl < bestDelta {
 					ii, uu := i, u
 					bestDelta = dl
 					bestMove = func() {
 						vOld := path[ii]
 						applyExchangeSelected(path, ii, uu)
-						inSel[vOld] = false
-						inSel[uu] = true
-						posOf[vOld] = -1
-						posOf[uu] = ii
+
+						inSel[vOld], inSel[uu] = false, true
+						posOf[vOld], posOf[uu] = -1, ii
+					}
+				}
+			}
+			// Iterate cand[b]
+			for _, u := range cd.CandList[b] {
+				if visitMark[u] == epoch {
+					continue
+				}
+				visitMark[u] = epoch
+				if inSel[u] {
+					continue
+				}
+				if !(isCandidateEdge(cd, a, u) || isCandidateEdge(cd, b, u)) {
+					continue
+				}
+				if dl := deltaExchangeSelected(D, costs, path, i, u); dl < bestDelta {
+					ii, uu := i, u
+					bestDelta = dl
+					bestMove = func() {
+						vOld := path[ii]
+						applyExchangeSelected(path, ii, uu)
+						inSel[vOld], inSel[uu] = false, true
+						posOf[vOld], posOf[uu] = -1, ii
 					}
 				}
 			}
@@ -376,7 +387,6 @@ func RunLocalSearchBatch(
 		if m.UseCand {
 			sol = localSearchSteepestCandidates(D, costs, init, cd)
 		} else {
-			// baseline without candidates
 			sol = localSearchSteepestBaseline(D, costs, init)
 		}
 		results = append(results, sol)

@@ -29,22 +29,22 @@ func processInstance(instanceName string, nodes []data.Node) {
 		// BASELINE (no candidate moves)
 		{
 			Name:    "Baseline_Steepest_2opt_Random",
-			UseCand: false, // kluczowe
+			UseCand: false,
 			CandK:   0,
 		},
-		// CANDIDATE MOVES — K = 5
+		// CANDIDATE MOVES - K = 5
 		{
 			Name:    "Candidates_Steepest_2opt_Random_K5",
 			UseCand: true,
 			CandK:   5,
 		},
-		// CANDIDATE MOVES — K = 10 (default value from the task)
+		// CANDIDATE MOVES - K = 10 (default value from the task)
 		{
 			Name:    "Candidates_Steepest_2opt_Random_K10",
 			UseCand: true,
 			CandK:   10,
 		},
-		// CANDIDATE MOVES — K = 15
+		// CANDIDATE MOVES - K = 15
 		{
 			Name:    "Candidates_Steepest_2opt_Random_K15",
 			UseCand: true,
