@@ -11,12 +11,14 @@ type LSType int
 type IntraType int
 type StartType int
 
+// MethodSpec defines the configuration for a local search run
 type MethodSpec struct {
 	Name    string
 	UseCand bool // should use candidate moves?
 	CandK   int  // how many nearest to include in candidate list
 }
 
+// objective computes the total cost: sum of edge distances in the cycle + sum of node costs
 func objective(D [][]int, costs []int, path []int) int {
 	if len(path) == 0 {
 		return math.MaxInt32 / 4
@@ -57,7 +59,10 @@ func startRandom(D [][]int, costs []int, rng *rand.Rand) Solution {
 	return Solution{Path: path, Objective: objective(D, costs, path)}
 }
 
-// intra-route move - two edges exchange: 2-opt between path[i] and path[j]
+// deltaTwoOpt computes the change in objective for a 2-opt move (intra-route).
+// Removes edges (path[i], path[i+1]) and (path[j], path[j+1]),
+// adds edges (path[i], path[j]) and (path[i+1], path[j+1]).
+// Note: node costs do not change, only edge costs.
 func deltaTwoOpt(D [][]int, path []int, i, j int) int {
 	if i == j {
 		return 0
@@ -76,7 +81,9 @@ func deltaTwoOpt(D [][]int, path []int, i, j int) int {
 	return after - before
 }
 
-// inter-route move - two-nodes exchange - path[i] with u (u outside the current path)
+// deltaExchangeSelected computes the change in objective for swapping path[i] with node u (inter-route).
+// Removes edges (prev, path[i]) and (path[i], next), removes cost[path[i]],
+// adds edges (prev, u) and (u, next), adds cost[u].
 func deltaExchangeSelected(D [][]int, costs []int, path []int, i int, u int) int {
 	n := len(path)
 	a := path[prevIdx(i, n)]
@@ -132,7 +139,8 @@ func packEdge(a, b int) uint64 {
 	return uint64(uint32(a))<<32 | uint64(uint32(b))
 }
 
-// Build K nearest per node by weight = D[u][v] + cost[u]
+// Build K nearest per node by weight = D[u][v] + costs[v]
+// For each node u, we find K nearest neighbors v ranked by edge weight + destination node cost
 func buildCandidates(D [][]int, costs []int, K int) CandData {
 	n := len(D)
 	if K <= 0 {
@@ -172,6 +180,8 @@ func isCandidateEdge(cd CandData, a, b int) bool {
 	return ok
 }
 
+// localSearchSteepestBaseline performs steepest-descent local search without candidate restrictions.
+// Considers all 2-opt moves (intra-route) and all node exchanges (inter-route).
 func localSearchSteepestBaseline(D [][]int, costs []int, init Solution) Solution {
 	path := append([]int(nil), init.Path...)
 	n := len(path)
@@ -223,13 +233,15 @@ func localSearchSteepestBaseline(D [][]int, costs []int, init Solution) Solution
 	return Solution{Path: path, Objective: objective(D, costs, path)}
 }
 
-// Steepest local search with candidate moves
-// For each n1 in the cycle and for each n2 from CandList[n1]:
-//   - if n2 is in the cycle and not a neighbor of n1 -> consider two 2-opt moves introducing (n1,n2):
-//     A) remove (n1,next(n1)) and (n2,next(n2)) -> add (n1,n2) +(next(n1),next(n2)) -> applyTwoOpt(i, j)
-//     B) remove (prev(n1),n1) and (prev(n2),n2) -> add (n1,n2) +(prev(n1),prev(n2)) -> applyTwoOpt(prev(i), prev(j))
-//   - if n2 is not in the cycle -> consider inter at position i with u=n2 only if (prev(i),u) or (u,next(i)) is candidate
-
+// localSearchSteepestCandidates performs steepest-descent local search with candidate move restrictions.
+// Candidate moves prune the search space using K-nearest neighbor lists:
+//   - Intra (2-opt): For each node n1 in cycle and each n2 in CandList[n1] also in cycle,
+//     consider two 2-opt moves that introduce edge (n1, n2):
+//     A) 2-opt(i, j) removes (n1, next(n1)) and (n2, next(n2))
+//     B) 2-opt(prev(i), prev(j)) removes (prev(n1), n1) and (prev(n2), n2)
+//   - Inter (exchange): For position i, only consider swapping with nodes u in CandList[prev(i)] or CandList[next(i)].
+//
+// This reduces evaluations while focusing on promising edges based on distance + node cost.
 func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd CandData) Solution {
 	path := append([]int(nil), init.Path...)
 	n := len(path)
@@ -292,23 +304,21 @@ func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd Can
 			}
 		}
 
-		// inter - allow only if at least one of the introduced edges is a candidate edge (a,u) or (u,b), where a = prev(path[i]), b = next(path[i])
+		// inter - consider exchanges only for candidate neighbors of the edges being modified
+		// For position i, we check candidates of a=prev(i) and b=next(i)
+		// Since u is in cd.CandList[a] or cd.CandList[b], at least one introduced edge is a candidate
 		for i := 0; i < n; i++ {
 			a := path[prevIdx(i, n)]
 			b := path[nextIdx(i, n)]
 
 			epoch++
-			// Iterate cand[a]
+			// Iterate cand[a] - all u here satisfy isCandidateEdge(cd, a, u)
 			for _, u := range cd.CandList[a] {
 				if visitMark[u] == epoch {
 					continue
 				}
 				visitMark[u] = epoch
 				if inSel[u] {
-					continue
-				}
-				// must introduce at least one candidate edge
-				if !(isCandidateEdge(cd, a, u) || isCandidateEdge(cd, b, u)) {
 					continue
 				}
 				if dl := deltaExchangeSelected(D, costs, path, i, u); dl < bestDelta {
@@ -323,16 +333,13 @@ func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd Can
 					}
 				}
 			}
-			// Iterate cand[b]
+			// Iterate cand[b] - all u here satisfy isCandidateEdge(cd, b, u)
 			for _, u := range cd.CandList[b] {
 				if visitMark[u] == epoch {
 					continue
 				}
 				visitMark[u] = epoch
 				if inSel[u] {
-					continue
-				}
-				if !(isCandidateEdge(cd, a, u) || isCandidateEdge(cd, b, u)) {
 					continue
 				}
 				if dl := deltaExchangeSelected(D, costs, path, i, u); dl < bestDelta {
@@ -358,8 +365,8 @@ func localSearchSteepestCandidates(D [][]int, costs []int, init Solution, cd Can
 	return Solution{Path: path, Objective: objective(D, costs, path)}
 }
 
-// Batch local search runner
-
+// RunLocalSearchBatch runs local search multiple times with random initializations.
+// Returns all solutions found (one per run).
 func RunLocalSearchBatch(
 	D [][]int,
 	costs []int,
