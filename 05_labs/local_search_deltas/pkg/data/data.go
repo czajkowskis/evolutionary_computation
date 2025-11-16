@@ -1,0 +1,44 @@
+package data
+
+import (
+	"encoding/csv"
+	"log"
+	"os"
+	"strconv"
+)
+
+// ReadNodes reads a semicolon-separated CSV file with columns x;y;cost into a
+// slice of Node values.
+func ReadNodes(filename string) ([]Node, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.Comma = ';'
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []Node
+	for _, record := range records {
+		x, err := strconv.Atoi(record[0])
+		if err != nil {
+			return nil, err
+		}
+		y, err := strconv.Atoi(record[1])
+		if err != nil {
+			return nil, err
+		}
+		cost, err := strconv.Atoi(record[2])
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, Node{x, y, cost})
+	}
+	log.Printf("Read %d nodes from %s", len(nodes), filename)
+	return nodes, nil
+}
