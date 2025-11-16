@@ -108,10 +108,16 @@ func updateLMAfterMove(D [][]int, costs []int, path []int, posOf []int, nonSel [
 		if i < 0 || j < 0 || i >= n || j >= n {
 			break
 		}
-		edgeStarts[i] = struct{}{}
-		edgeStarts[j] = struct{}{}
-		edgeStarts[prevIdx(i, n)] = struct{}{}
-		edgeStarts[prevIdx(j, n)] = struct{}{}
+		if i == j {
+			break
+		}
+		if i > j {
+			i, j = j, i
+		}
+		for k := i; k <= j; k++ {
+			edgeStarts[k] = struct{}{}
+			edgeStarts[prevIdx(k, n)] = struct{}{}
+		}
 	case MoveExchangeSelected:
 		uNew := bestMove.u
 		if uNew < 0 {
@@ -133,6 +139,9 @@ func updateLMAfterMove(D [][]int, costs []int, path []int, posOf []int, nonSel [
 	for i := range edgeStarts {
 		for j := 0; j < n; j++ {
 			if j == i {
+				continue
+			}
+			if j == nextIdx(i, n) || j == prevIdx(i, n) {
 				continue
 			}
 			dl := deltaTwoOpt(D, path, i, j)
@@ -300,8 +309,6 @@ func localSearchSteepestLM(D [][]int, costs []int, init Solution) Solution {
 	}
 
 	// maintain the list of non-selected vertices incrementally.
-	// it is kept sorted increasingly by vertex id, matching the order
-	// produced by the previous buildNonSelected helper.
 	nonSel := make([]int, 0, dim-n)
 	for u := 0; u < dim; u++ {
 		if !inSel[u] {
@@ -309,25 +316,16 @@ func localSearchSteepestLM(D [][]int, costs []int, init Solution) Solution {
 		}
 	}
 
+	// removeFromSlice removes value from xs using swap-and-pop (O(1)).
+	// Order is not preserved, but this is acceptable for nonSel.
 	removeFromSlice := func(xs []int, value int) []int {
 		for i, v := range xs {
 			if v == value {
-				copy(xs[i:], xs[i+1:])
-				return xs[:len(xs)-1]
+				lastIdx := len(xs) - 1
+				xs[i] = xs[lastIdx]
+				return xs[:lastIdx]
 			}
 		}
-		return xs
-	}
-
-	insertSorted := func(xs []int, value int) []int {
-		// maintain ascending order by vertex id
-		i := 0
-		for i < len(xs) && xs[i] < value {
-			i++
-		}
-		xs = append(xs, 0)
-		copy(xs[i+1:], xs[i:])
-		xs[i] = value
 		return xs
 	}
 
@@ -350,7 +348,6 @@ func localSearchSteepestLM(D [][]int, costs []int, init Solution) Solution {
 				ok1, fwd1, cut1 := findEdgeCut(path, posOf, rec.a, rec.b)
 				ok2, fwd2, cut2 := findEdgeCut(path, posOf, rec.c, rec.d)
 				if !ok1 || !ok2 {
-
 					lm.remove(rec)
 					removed = true
 				} else if fwd1 != fwd2 {
@@ -372,7 +369,8 @@ func localSearchSteepestLM(D [][]int, costs []int, init Solution) Solution {
 					}
 				}
 			case MoveExchangeSelected:
-				// verify v is still selected and u is not
+				// Early checks before expensive findEdgeCut calls.
+				// Verify v is still selected and u is not.
 				if rec.v < 0 || rec.v >= dim || posOf[rec.v] == -1 {
 					lm.remove(rec)
 					removed = true
@@ -423,10 +421,9 @@ func localSearchSteepestLM(D [][]int, costs []int, init Solution) Solution {
 				inSel[vOld], inSel[uNew] = false, true
 				posOf[vOld], posOf[uNew] = -1, posV
 
-				// keep nonSel consistent (and ordered by id) with the
-				// incremental update policy.
+				// keep nonSel consistent with the incremental update policy.
 				nonSel = removeFromSlice(nonSel, uNew)
-				nonSel = insertSorted(nonSel, vOld)
+				nonSel = append(nonSel, vOld)
 			}
 		}
 
