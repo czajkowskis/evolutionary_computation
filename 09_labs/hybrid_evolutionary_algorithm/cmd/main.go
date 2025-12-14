@@ -60,6 +60,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		start := time.Now()
 
 		var solutions []algorithms.Solution
+		totalIterations := 0
 
 		for run := 0; run < numRuns; run++ {
 			seed := time.Now().UnixNano() + int64(run)
@@ -72,11 +73,13 @@ func processInstance(instanceName string, nodes []data.Node) {
 				Seed:           seed,
 			}
 
-			solution := algorithms.HybridEvolutionary(D, costs, hybridConfig)
-			solutions = append(solutions, solution)
+			result := algorithms.HybridEvolutionary(D, costs, hybridConfig)
+			solutions = append(solutions, result.Solution)
+			totalIterations += result.Iterations
 
 			if run%5 == 0 {
-				log.Printf("  Run %d/%d completed: objective = %d", run+1, numRuns, solution.Objective)
+				log.Printf("  Run %d/%d completed: objective = %d, iterations = %d",
+					run+1, numRuns, result.Solution.Objective, result.Iterations)
 			}
 		}
 
@@ -85,20 +88,22 @@ func processInstance(instanceName string, nodes []data.Node) {
 
 		minV, maxV, avgV := utils.CalculateStatistics(solutions)
 		avgTimeMs := float64(avgTime.Nanoseconds()) / 1e6
+		avgIterations := float64(totalIterations) / float64(numRuns)
 		bestSolution := algorithms.FindBestSolution(solutions)
 
 		rows = append(rows, utils.Row{
-			Name:      cfg.name,
-			AvgV:      avgV,
-			MinV:      minV,
-			MaxV:      maxV,
-			AvgTms:    avgTimeMs,
-			BestPath:  bestSolution.Path,
-			BestValue: bestSolution.Objective,
+			Name:        cfg.name,
+			AvgV:        avgV,
+			MinV:        minV,
+			MaxV:        maxV,
+			AvgTms:      avgTimeMs,
+			AvgLNSIters: avgIterations,
+			BestPath:    bestSolution.Path,
+			BestValue:   bestSolution.Objective,
 		})
 
-		log.Printf("Completed %s: best=%d, avg=%.2f, min=%d, max=%d, avg_time=%.2f ms",
-			cfg.name, bestSolution.Objective, avgV, minV, maxV, avgTimeMs)
+		log.Printf("Completed %s: best=%d, avg=%.2f, min=%d, max=%d, avg_time=%.2f ms, avg_iterations=%.1f",
+			cfg.name, bestSolution.Objective, avgV, minV, maxV, avgTimeMs, avgIterations)
 	}
 
 	// Print detailed console output
@@ -114,6 +119,13 @@ func processInstance(instanceName string, nodes []data.Node) {
 	fmt.Println("----------------------------------------------------------------")
 	for _, r := range rows {
 		fmt.Printf("%-38s  %.4f\n", r.Name, r.AvgTms)
+	}
+
+	fmt.Println("\n--- Average Iterations per Run ---")
+	fmt.Println("Configuration                           Iterations")
+	fmt.Println("----------------------------------------------------------------")
+	for _, r := range rows {
+		fmt.Printf("%-38s  %.1f\n", r.Name, r.AvgLNSIters)
 	}
 
 	fmt.Println("\n--- Best Solution Values ---")

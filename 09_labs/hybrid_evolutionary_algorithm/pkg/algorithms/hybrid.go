@@ -14,8 +14,14 @@ type HybridConfig struct {
 	Seed           int64
 }
 
+// HybridResult contains the result of the hybrid algorithm
+type HybridResult struct {
+	Solution   Solution
+	Iterations int
+}
+
 // HybridEvolutionary runs the hybrid evolutionary algorithm
-func HybridEvolutionary(D [][]int, costs []int, config HybridConfig) Solution {
+func HybridEvolutionary(D [][]int, costs []int, config HybridConfig) HybridResult {
 	rng := rand.New(rand.NewSource(config.Seed))
 	n := len(costs)
 	targetSize := (n + 1) / 2
@@ -66,7 +72,10 @@ func HybridEvolutionary(D [][]int, costs []int, config HybridConfig) Solution {
 		iterations++
 	}
 
-	return bestSolution
+	return HybridResult{
+		Solution:   bestSolution,
+		Iterations: iterations,
+	}
 }
 
 // initializePopulation creates initial population using random start + local search
