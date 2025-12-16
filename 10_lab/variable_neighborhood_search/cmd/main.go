@@ -14,10 +14,9 @@ import (
 
 // Configuration constants
 const (
-	numVNSRuns             = 20      // Number of VNS runs per instance
-	timeLimitA             = 3276.57 // Average running time of MSLS from the previous assignment for instance A
-	timeLimitB             = 2342.11 // Average running time of MSLS from the previous assignment for instance B
-	maxIterationsNoImprove = 500     // Maximum iterations without improvement before stopping
+	numVNSRuns = 20      // Number of VNS runs per instance
+	timeLimitA = 3276.57 // Average running time of MSLS from the previous assignment for instance A
+	timeLimitB = 2342.11 // Average running time of MSLS from the previous assignment for instance B
 )
 
 // processInstance runs the full experimental pipeline for a single instance
@@ -61,12 +60,11 @@ func processInstance(instanceName string, nodes []data.Node) {
 		totalVNSIterations := 0
 		for run := 0; run < numVNSRuns; run++ {
 			vnsResult := algorithms.VariableNeighborhoodSearch(D, costs, algorithms.VNSConfig{
-				TimeLimit:              timeLimit,
-				MaxIterationsNoImprove: maxIterationsNoImprove,
-				MaxNeighborhoods:       4,
-				ShakingIntensity:       cfg.shakingIntensity,
-				NeighborhoodChange:     cfg.neighborhoodChange,
-				UseLocalSearch:         cfg.useLocalSearch,
+				TimeLimit:          timeLimit,
+				MaxNeighborhoods:   4,
+				ShakingIntensity:   cfg.shakingIntensity,
+				NeighborhoodChange: cfg.neighborhoodChange,
+				UseLocalSearch:     cfg.useLocalSearch,
 			})
 			vnsResults = append(vnsResults, vnsResult)
 			totalVNSIterations += vnsResult.Iterations
@@ -154,4 +152,3 @@ func main() {
 
 	log.Println("Program execution completed")
 }
-

@@ -90,10 +90,6 @@ func VariableNeighborhoodSearch(D [][]int, costs []int, config VNSConfig) VNSRes
 		if config.MaxIterations > 0 && iterations >= config.MaxIterations {
 			return false
 		}
-		// Check iterations without improvement
-		if config.MaxIterationsNoImprove > 0 && iterationsNoImprove >= config.MaxIterationsNoImprove {
-			return false
-		}
 		return true
 	}
 
