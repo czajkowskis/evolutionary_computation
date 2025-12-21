@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"path/filepath"
 	"time"
 
 	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/algorithms"
-	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/data"
-	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/utils"
-	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/visualisation"
+	commonAlgorithms "github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/config"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/data"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/utils"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/visualisation"
 )
 
 func processInstance(instanceName string, nodes []data.Node) {
@@ -53,7 +56,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		minVal, maxVal, avgVal := utils.CalculateStatistics(solutions)
 		avgTimeMs := float64(batchTime.Nanoseconds()) / float64(numSolutions) / 1e6
 
-		best := algorithms.FindBestSolution(solutions)
+		best := commonAlgorithms.FindBestSolution(solutions)
 
 		rows = append(rows, utils.Row{
 			Name:      m.Name,
@@ -70,7 +73,10 @@ func processInstance(instanceName string, nodes []data.Node) {
 		// Plots for the best solutions
 		title := fmt.Sprintf("Best %s Solution for Instance %s", m.Name, instanceName)
 		fileName := utils.SanitizeFileName(fmt.Sprintf("Best_%s_Solution_%s", m.Name, instanceName))
-		if err := visualisation.PlotSolution(nodes, best.Path, title, fileName, 0, 4000, 0, 2000); err != nil {
+		plotBounds := config.DefaultPlotBounds
+		outputDir := filepath.Join("output", "08_labs", "global_convexity", "plots")
+		if err := visualisation.PlotSolution(nodes, best.Path, title, fileName,
+			plotBounds.XMin, plotBounds.XMax, plotBounds.YMin, plotBounds.YMax, outputDir); err != nil {
 			log.Printf("plot error for %s/%s: %v", instanceName, m.Name, err)
 		}
 	}
@@ -89,7 +95,8 @@ func processInstance(instanceName string, nodes []data.Node) {
 	}
 
 	// Save results to CSV
-	if err := utils.WriteResultsCSV(instanceName, rows); err != nil {
+	outputDir := filepath.Join("output", "08_labs", "global_convexity", "results")
+	if err := utils.WriteResultsCSV(instanceName, rows, outputDir); err != nil {
 		log.Printf("CSV write error for instance %s: %v", instanceName, err)
 	} else {
 		log.Printf("CSV results saved for instance %s", instanceName)
@@ -101,11 +108,12 @@ func main() {
 
 	log.Println("Starting evolutionary computation local search program")
 
-	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
+	instancePaths := config.DefaultInstancePaths()
+	nodesA, err := data.ReadNodes(instancePaths.TSPA)
 	if err != nil {
 		log.Fatalf("Error reading TSPA.csv: %v", err)
 	}
-	nodesB, err := data.ReadNodes("./instances/TSPB.csv")
+	nodesB, err := data.ReadNodes(instancePaths.TSPB)
 	if err != nil {
 		log.Fatalf("Error reading TSPB.csv: %v", err)
 	}

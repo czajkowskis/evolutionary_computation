@@ -30,3 +30,24 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Output directories
+output/
+output_plots/
+*.png
+*.csv
+!instances/*.csv
+
+# Build artifacts
+cmd/
+main
+*.log
+
+# LaTeX build files
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.pdf
+*.synctex.gz

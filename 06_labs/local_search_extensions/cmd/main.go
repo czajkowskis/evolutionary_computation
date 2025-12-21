@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"path/filepath"
 	"time"
 
 	"github.com/czajkowskis/evolutionary_computation/06_labs/local_search_extensions/pkg/algorithms"
-	"github.com/czajkowskis/evolutionary_computation/06_labs/local_search_extensions/pkg/data"
-	"github.com/czajkowskis/evolutionary_computation/06_labs/local_search_extensions/pkg/utils"
-	"github.com/czajkowskis/evolutionary_computation/06_labs/local_search_extensions/pkg/visualisation"
+	commonAlgorithms "github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/config"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/data"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/utils"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/visualisation"
 )
 
 // Configuration constants
@@ -58,14 +61,14 @@ func processInstance(instanceName string, nodes []data.Node) {
 	avgMSLSTime := totalMSLSTime / time.Duration(numMSLSRuns)
 
 	// Collect MSLS solutions for statistics
-	mslsSolutions := make([]algorithms.Solution, len(mslsResults))
+	mslsSolutions := make([]commonAlgorithms.Solution, len(mslsResults))
 	for i, r := range mslsResults {
 		mslsSolutions[i] = r.BestSolution
 	}
 
 	mslsMin, mslsMax, mslsAvg := utils.CalculateStatistics(mslsSolutions)
 	avgMSLSTimeMs := float64(avgMSLSTime.Nanoseconds()) / 1e6
-	bestMSLS := algorithms.FindBestSolution(mslsSolutions)
+	bestMSLS := commonAlgorithms.FindBestSolution(mslsSolutions)
 
 	rows = append(rows, utils.Row{
 		Name:      "MSLS",
@@ -92,7 +95,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 	}
 
 	// Collect ILS solutions for statistics
-	ilsSolutions := make([]algorithms.Solution, len(ilsResults))
+	ilsSolutions := make([]commonAlgorithms.Solution, len(ilsResults))
 	for i, r := range ilsResults {
 		ilsSolutions[i] = r.BestSolution
 	}
@@ -100,7 +103,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 	ilsMin, ilsMax, ilsAvg := utils.CalculateStatistics(ilsSolutions)
 	avgILSTimeMs := float64(avgMSLSTime.Nanoseconds()) / 1e6 // Same time limit as MSLS
 	avgLSIterations := float64(totalILSIterations) / float64(numILSRuns)
-	bestILS := algorithms.FindBestSolution(ilsSolutions)
+	bestILS := commonAlgorithms.FindBestSolution(ilsSolutions)
 
 	rows = append(rows, utils.Row{
 		Name:      "ILS",
@@ -128,22 +131,27 @@ func processInstance(instanceName string, nodes []data.Node) {
 	fmt.Printf("ILS - Average LS iterations per run: %.1f\n", avgLSIterations)
 
 	// Save CSV
-	if err := utils.WriteResultsCSV(instanceName, rows); err != nil {
+	outputDir := filepath.Join("output", "06_labs", "local_search_extensions", "results")
+	if err := utils.WriteResultsCSV(instanceName, rows, outputDir); err != nil {
 		log.Printf("CSV write error for instance %s: %v", instanceName, err)
 	} else {
 		log.Printf("CSV results saved for instance %s", instanceName)
 	}
 
 	// Plot best solutions
+	plotBounds := config.DefaultPlotBounds
+	plotDir := filepath.Join("output", "06_labs", "local_search_extensions", "plots")
 	titleMSLS := fmt.Sprintf("Best MSLS Solution for Instance %s", instanceName)
 	fileNameMSLS := utils.SanitizeFileName(fmt.Sprintf("Best_MSLS_Solution_%s", instanceName))
-	if err := visualisation.PlotSolution(nodes, bestMSLS.Path, titleMSLS, fileNameMSLS, 0, 4000, 0, 2000); err != nil {
+	if err := visualisation.PlotSolution(nodes, bestMSLS.Path, titleMSLS, fileNameMSLS,
+		plotBounds.XMin, plotBounds.XMax, plotBounds.YMin, plotBounds.YMax, plotDir); err != nil {
 		log.Printf("plot error for %s/MSLS: %v", instanceName, err)
 	}
 
 	titleILS := fmt.Sprintf("Best ILS Solution for Instance %s", instanceName)
 	fileNameILS := utils.SanitizeFileName(fmt.Sprintf("Best_ILS_Solution_%s", instanceName))
-	if err := visualisation.PlotSolution(nodes, bestILS.Path, titleILS, fileNameILS, 0, 4000, 0, 2000); err != nil {
+	if err := visualisation.PlotSolution(nodes, bestILS.Path, titleILS, fileNameILS,
+		plotBounds.XMin, plotBounds.XMax, plotBounds.YMin, plotBounds.YMax, plotDir); err != nil {
 		log.Printf("plot error for %s/ILS: %v", instanceName, err)
 	}
 }
@@ -152,11 +160,12 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.Println("Starting MSLS vs ILS local search experiments")
 
-	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
+	instancePaths := config.DefaultInstancePaths()
+	nodesA, err := data.ReadNodes(instancePaths.TSPA)
 	if err != nil {
 		log.Fatalf("Error reading TSPA.csv: %v", err)
 	}
-	nodesB, err := data.ReadNodes("./instances/TSPB.csv")
+	nodesB, err := data.ReadNodes(instancePaths.TSPB)
 	if err != nil {
 		log.Fatalf("Error reading TSPB.csv: %v", err)
 	}

@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"path/filepath"
 	"time"
 
 	"github.com/czajkowskis/evolutionary_computation/05_labs/local_search_deltas/pkg/algorithms"
-	"github.com/czajkowskis/evolutionary_computation/05_labs/local_search_deltas/pkg/data"
-	"github.com/czajkowskis/evolutionary_computation/05_labs/local_search_deltas/pkg/utils"
-	"github.com/czajkowskis/evolutionary_computation/05_labs/local_search_deltas/pkg/visualisation"
+	commonAlgorithms "github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/config"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/data"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/utils"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/visualisation"
 )
 
 // processInstance runs the full experimental pipeline for a single instance:
@@ -103,7 +106,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 			maxTimeMs = float64(maxDur.Nanoseconds()) / 1e6
 		}
 
-		best := algorithms.FindBestSolution(solutions)
+		best := commonAlgorithms.FindBestSolution(solutions)
 
 		rows = append(rows, utils.Row{
 			Name:      m.Name,
@@ -126,7 +129,10 @@ func processInstance(instanceName string, nodes []data.Node) {
 		// Wykres najlepszej trasy
 		title := fmt.Sprintf("Best %s Solution for Instance %s", m.Name, instanceName)
 		fileName := utils.SanitizeFileName(fmt.Sprintf("Best_%s_Solution_%s", m.Name, instanceName))
-		if err := visualisation.PlotSolution(nodes, best.Path, title, fileName, 0, 4000, 0, 2000); err != nil {
+		plotBounds := config.DefaultPlotBounds
+		outputDir := filepath.Join("output", "05_labs", "local_search_deltas", "plots")
+		if err := visualisation.PlotSolution(nodes, best.Path, title, fileName,
+			plotBounds.XMin, plotBounds.XMax, plotBounds.YMin, plotBounds.YMax, outputDir); err != nil {
 			log.Printf("plot error for %s/%s: %v", instanceName, m.Name, err)
 		}
 	}
@@ -145,7 +151,8 @@ func processInstance(instanceName string, nodes []data.Node) {
 	}
 
 	// 6) CSV
-	if err := utils.WriteResultsCSV(instanceName, rows); err != nil {
+	outputDir := filepath.Join("output", "05_labs", "local_search_deltas", "results")
+	if err := utils.WriteResultsCSV(instanceName, rows, outputDir); err != nil {
 		log.Printf("CSV write error for instance %s: %v", instanceName, err)
 	} else {
 		log.Printf("CSV results saved for instance %s", instanceName)
@@ -158,11 +165,12 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.Println("Starting evolutionary computation local search program")
 
-	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
+	instancePaths := config.DefaultInstancePaths()
+	nodesA, err := data.ReadNodes(instancePaths.TSPA)
 	if err != nil {
 		log.Fatalf("Error reading TSPA.csv: %v", err)
 	}
-	nodesB, err := data.ReadNodes("./instances/TSPB.csv")
+	nodesB, err := data.ReadNodes(instancePaths.TSPB)
 	if err != nil {
 		log.Fatalf("Error reading TSPB.csv: %v", err)
 	}

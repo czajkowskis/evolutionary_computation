@@ -3,12 +3,15 @@ package main
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/czajkowskis/evolutionary_computation/09_labs/hybrid_evolutionary_algorithm/pkg/algorithms"
-	"github.com/czajkowskis/evolutionary_computation/09_labs/hybrid_evolutionary_algorithm/pkg/data"
-	"github.com/czajkowskis/evolutionary_computation/09_labs/hybrid_evolutionary_algorithm/pkg/utils"
-	"github.com/czajkowskis/evolutionary_computation/09_labs/hybrid_evolutionary_algorithm/pkg/visualisation"
+	commonAlgorithms "github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/config"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/data"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/utils"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/visualisation"
 )
 
 // Configuration constants
@@ -59,7 +62,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		log.Printf("Starting %s for instance %s", cfg.name, instanceName)
 		start := time.Now()
 
-		var solutions []algorithms.Solution
+		var solutions []commonAlgorithms.Solution
 		totalIterations := 0
 
 		for run := 0; run < numRuns; run++ {
@@ -89,7 +92,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		minV, maxV, avgV := utils.CalculateStatistics(solutions)
 		avgTimeMs := float64(avgTime.Nanoseconds()) / 1e6
 		avgIterations := float64(totalIterations) / float64(numRuns)
-		bestSolution := algorithms.FindBestSolution(solutions)
+		bestSolution := commonAlgorithms.FindBestSolution(solutions)
 
 		rows = append(rows, utils.Row{
 			Name:        cfg.name,
@@ -137,20 +140,23 @@ func processInstance(instanceName string, nodes []data.Node) {
 	fmt.Println()
 
 	// Save CSV
-	csvFileName := fmt.Sprintf("hybrid_results_%s.csv", instanceName)
-	if err := utils.WriteResultsCSV(csvFileName, rows); err != nil {
+	outputDir := filepath.Join("output", "09_labs", "hybrid_evolutionary_algorithm", "results")
+	if err := utils.WriteResultsCSV(instanceName, rows, outputDir); err != nil {
 		log.Printf("CSV write error for instance %s: %v", instanceName, err)
 	} else {
-		log.Printf("CSV results saved to %s", csvFileName)
+		log.Printf("CSV results saved for instance %s", instanceName)
 	}
 
 	// Plot best solutions for each method
+	plotBounds := config.DefaultPlotBounds
+	plotDir := filepath.Join("output", "09_labs", "hybrid_evolutionary_algorithm", "plots")
 	for i, r := range rows {
 		title := fmt.Sprintf("%s - Instance %s (Value: %d)", r.Name, instanceName, r.BestValue)
 		fileName := utils.SanitizeFileName(fmt.Sprintf("hybrid_%s_instance_%s_%d",
 			r.Name, instanceName, i))
 
-		if err := visualisation.PlotSolution(nodes, r.BestPath, title, fileName, 0, 4000, 0, 2000); err != nil {
+		if err := visualisation.PlotSolution(nodes, r.BestPath, title, fileName,
+			plotBounds.XMin, plotBounds.XMax, plotBounds.YMin, plotBounds.YMax, plotDir); err != nil {
 			log.Printf("Plot error for %s/%s: %v", instanceName, r.Name, err)
 		} else {
 			log.Printf("Plot saved: %s.png", fileName)
@@ -164,11 +170,12 @@ func main() {
 	log.Println("========================================")
 	log.Printf("Configuration: Population Size = %d, Runs per config = %d\n", populationSize, numRuns)
 
-	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
+	instancePaths := config.DefaultInstancePaths()
+	nodesA, err := data.ReadNodes(instancePaths.TSPA)
 	if err != nil {
 		log.Fatalf("Error reading TSPA.csv: %v", err)
 	}
-	nodesB, err := data.ReadNodes("./instances/TSPB.csv")
+	nodesB, err := data.ReadNodes(instancePaths.TSPB)
 	if err != nil {
 		log.Fatalf("Error reading TSPB.csv: %v", err)
 	}

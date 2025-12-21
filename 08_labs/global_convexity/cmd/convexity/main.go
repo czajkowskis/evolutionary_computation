@@ -11,20 +11,23 @@ import (
 	"time"
 
 	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/algorithms"
-	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/data"
-	"github.com/czajkowskis/evolutionary_computation/03_labs/local_search/pkg/utils"
+	commonAlgorithms "github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/config"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/data"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/utils"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// Load instances
+	instancePaths := config.DefaultInstancePaths()
 	instances := []struct {
 		Name string
 		Path string
 	}{
-		{"A", "./instances/TSPA.csv"},
-		{"B", "./instances/TSPB.csv"},
+		{"A", instancePaths.TSPA},
+		{"B", instancePaths.TSPB},
 	}
 
 	for _, inst := range instances {
@@ -93,7 +96,7 @@ func main() {
 			}
 			// Run a small batch to get a good one
 			strongSolutions := algorithms.RunLocalSearchBatch(D, costs, utils.GenerateStartNodeIndices(len(nodes)), strongMethod, 200)
-			bestKnown = algorithms.FindBestSolution(strongSolutions)
+			bestKnown = commonAlgorithms.FindBestSolution(strongSolutions)
 		}
 		log.Printf("Best Known Objective: %d", bestKnown.Objective)
 

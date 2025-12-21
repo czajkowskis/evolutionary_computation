@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"path/filepath"
 	"time"
 
 	"github.com/czajkowskis/evolutionary_computation/07_labs/large_neighborhood_search/pkg/algorithms"
-	"github.com/czajkowskis/evolutionary_computation/07_labs/large_neighborhood_search/pkg/data"
-	"github.com/czajkowskis/evolutionary_computation/07_labs/large_neighborhood_search/pkg/utils"
-	"github.com/czajkowskis/evolutionary_computation/07_labs/large_neighborhood_search/pkg/visualisation"
+	commonAlgorithms "github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/config"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/data"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/utils"
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/visualisation"
 )
 
 // Configuration constants
@@ -70,7 +73,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		avgLNSTime := totalLNSTime / time.Duration(numLNSRuns)
 
 		// Collect LNS solutions for statistics
-		lnsSolutions := make([]algorithms.Solution, len(lnsResults))
+		lnsSolutions := make([]commonAlgorithms.Solution, len(lnsResults))
 		for i, r := range lnsResults {
 			lnsSolutions[i] = r.BestSolution
 		}
@@ -78,7 +81,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		lnsMin, lnsMax, lnsAvg := utils.CalculateStatistics(lnsSolutions)
 		avgLNSTimeMs := float64(avgLNSTime.Nanoseconds()) / 1e6
 		avgLNSIterations := float64(totalLNSIterations) / float64(numLNSRuns)
-		bestLNS := algorithms.FindBestSolution(lnsSolutions)
+		bestLNS := commonAlgorithms.FindBestSolution(lnsSolutions)
 
 		rows = append(rows, utils.Row{
 			Name:        fmt.Sprintf("LNS+LS (%s)", method),
@@ -116,7 +119,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		avgLNSTime := totalLNSTime / time.Duration(numLNSRuns)
 
 		// Collect LNS solutions for statistics
-		lnsSolutions := make([]algorithms.Solution, len(lnsResults))
+		lnsSolutions := make([]commonAlgorithms.Solution, len(lnsResults))
 		for i, r := range lnsResults {
 			lnsSolutions[i] = r.BestSolution
 		}
@@ -124,7 +127,7 @@ func processInstance(instanceName string, nodes []data.Node) {
 		lnsMin, lnsMax, lnsAvg := utils.CalculateStatistics(lnsSolutions)
 		avgLNSTimeMs := float64(avgLNSTime.Nanoseconds()) / 1e6
 		avgLNSIterations := float64(totalLNSIterations) / float64(numLNSRuns)
-		bestLNS := algorithms.FindBestSolution(lnsSolutions)
+		bestLNS := commonAlgorithms.FindBestSolution(lnsSolutions)
 
 		rows = append(rows, utils.Row{
 			Name:        fmt.Sprintf("LNS-LS (%s)", method),
@@ -159,17 +162,21 @@ func processInstance(instanceName string, nodes []data.Node) {
 	}
 
 	// Save CSV
-	if err := utils.WriteResultsCSV(instanceName, rows); err != nil {
+	outputDir := filepath.Join("output", "07_labs", "large_neighborhood_search", "results")
+	if err := utils.WriteResultsCSV(instanceName, rows, outputDir); err != nil {
 		log.Printf("CSV write error for instance %s: %v", instanceName, err)
 	} else {
 		log.Printf("CSV results saved for instance %s", instanceName)
 	}
 
 	// Plot best solutions for each method
+	plotBounds := config.DefaultPlotBounds
+	plotDir := filepath.Join("output", "07_labs", "large_neighborhood_search", "plots")
 	for i, r := range rows {
 		title := fmt.Sprintf("%s for Instance %s (Value: %d)", r.Name, instanceName, r.BestValue)
 		fileName := utils.SanitizeFileName(fmt.Sprintf("%s_Instance_%s_%d", r.Name, instanceName, i))
-		if err := visualisation.PlotSolution(nodes, r.BestPath, title, fileName, 0, 4000, 0, 2000); err != nil {
+		if err := visualisation.PlotSolution(nodes, r.BestPath, title, fileName,
+			plotBounds.XMin, plotBounds.XMax, plotBounds.YMin, plotBounds.YMax, plotDir); err != nil {
 			log.Printf("plot error for %s/%s: %v", instanceName, r.Name, err)
 		}
 	}
@@ -179,11 +186,12 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.Println("Starting LNS local search experiments")
 
-	nodesA, err := data.ReadNodes("./instances/TSPA.csv")
+	instancePaths := config.DefaultInstancePaths()
+	nodesA, err := data.ReadNodes(instancePaths.TSPA)
 	if err != nil {
 		log.Fatalf("Error reading TSPA.csv: %v", err)
 	}
-	nodesB, err := data.ReadNodes("./instances/TSPB.csv")
+	nodesB, err := data.ReadNodes(instancePaths.TSPB)
 	if err != nil {
 		log.Fatalf("Error reading TSPB.csv: %v", err)
 	}

@@ -1,0 +1,426 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{float}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\title{
+    \centering
+    \includegraphics[width=1\textwidth]{logo.png}
+    \begin{center}
+        \huge\textbf{Evolutionary Computation}
+        \vspace{5mm}
+        \hrule
+        \huge\vspace{10mm}{Assignment 10 \\ Own Method - Variable Neighbourhood Search}
+    \end{center}
+}
+\author{\textbf{Magdalena Augustyniak}, 156036 \and \textbf{Szymon Czajkowski}, 156067}
+\date{}
+\graphicspath{{./img/}}
+\begin{document}
+
+\begin{titlepage}
+    \maketitle
+    \vfill
+    \thispagestyle{empty}
+\end{titlepage}
+
+\maketitle
+
+\section{Description of the problem}
+
+The optimization problem involves selecting a subset of nodes and constructing a Hamiltonian cycle, that minimizes a composite function combining spatial distance and node-specific costs.
+
+Each problem instance is defined by three columns of integer values, where each row corresponds to a single node. The first two columns represent $x$ and $y$ coordinates of the node in a two-dimensional plane, while the third column specifies the cost associated with that node.
+
+The objective is to select 50\% of all available nodes (or if the total number of nodes is odd, the number of selected nodes is rounded up) and to form a Hamiltonian cycle (a closed path visiting each selected node exactly once and returning to the starting node). The goal is to minimize the following total cost function:
+
+\[
+    f(S) = \sum_{(i,j) \in E(S)} d(i,j) + \sum_{i \in S} c_i
+\]
+
+where:
+
+\begin{itemize}
+    \item $S$ denotes the set of selected nodes,
+    \item $E(S)$ represents the edges connecting consecutive nodes in the cycle over $S$,
+    \item $d(i,j)$ is the distance between nodes $i$ and $j$,
+    \item $c_i$ is the individual cost associated with node $i$.
+\end{itemize}
+
+The distances $d(i,j)$ are computed as the Euclidean distances between nodes $i$ and $j$, rounded mathematically to the nearest integer value:
+
+\[
+    d(i,j) = \mathrm{round} \left( \sqrt{(x_i - x_j)^2 + (y_i - y_j)^2} \right)
+\]
+
+After reading the instance data, the full distance matrix is computed once and used by all optimization procedures. During the optimization process, only the distance matrix is accessed and the original coordinates of the nodes are not used. This approach ensures, that the implemented methods are compatible with instances defined solely by distance matrices.
+
+\section{Pseudocode of all implemented algorithms}
+
+\subsection{Variable Neighborhood Search}
+
+\textbf{Input:} Distance matrix $D$, cost vector $c$, neighborhoods $N_1, \ldots, N_{k_{max}}$, time limit $T$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Output:} Best solution $x^*$ and its objective value $f(x^*)$.
+
+\vspace{0.2cm}
+
+\noindent \textbf{Procedure:}
+
+\begin{enumerate}
+    \item Let $N$ be the set of all nodes in an instance, and $k = \lceil |N|/2 \rceil$.
+    \item Generate initial solution $x$:
+          \begin{enumerate}
+              \item Draw a uniform random subset $S \subseteq N$ with $|S| = k$ (without replacement).
+              \item Generate a uniform random permutation of the nodes in $S$ to obtain the initial path $P$.
+              \item Form a cycle by connecting the end of $P$ with its beginning.
+          \end{enumerate}
+    \item Apply local search to $x$: $x \leftarrow$ LocalSearch($x$).
+    \item Set $x^* \leftarrow x$ and $f^* \leftarrow f(x)$.
+    \item Initialize iteration counter $iter \leftarrow 0$.
+    \item \textbf{Repeat} while $time < T$:
+          \begin{enumerate}
+              \item $iter \leftarrow iter + 1$
+              \item $k \leftarrow 1$ \quad \textit{(Start with first neighborhood)}
+              \item \textbf{Repeat} while $k \leq k_{max}$:
+                    \begin{enumerate}
+                        \item Select neighborhood index $idx$ based on strategy:
+                              \begin{itemize}
+                                  \item If strategy = Sequential: $idx \leftarrow (k-1) \bmod 4$
+                                  \item If strategy = Random: $idx \leftarrow$ random integer in $\{0,1,2,3\}$
+                              \end{itemize}
+                        \item Apply shaking operator: $x' \leftarrow$ Shake($x$, $N_{idx}$, intensity)
+                        \item Apply local search: $x'' \leftarrow$ LocalSearch($x'$)
+                        \item If $f(x'') < f(x)$ then:
+                              \begin{enumerate}
+                                  \item $x \leftarrow x''$
+                                  \item If $f(x) < f^*$ then:
+                                        \begin{itemize}
+                                            \item $x^* \leftarrow x$
+                                            \item $f^* \leftarrow f(x)$
+                                        \end{itemize}
+                                  \item $k \leftarrow 1$ \quad \textit{(Return to first neighborhood)}
+                                  \item Break inner loop
+                              \end{enumerate}
+                        \item Else:
+                              \begin{enumerate}
+                                  \item $k \leftarrow k + 1$ \quad \textit{(Move to next neighborhood)}
+                              \end{enumerate}
+                    \end{enumerate}
+          \end{enumerate}
+    \item Return $x^*$ and $f^*$.
+\end{enumerate}
+
+\subsection{Shaking Operators}
+
+\subsubsection{N1: Node Exchange}
+
+\textbf{Input:} Current solution $x$ with path $P$, shaking intensity $\alpha$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Output:} Shaken solution $x'$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Procedure:}
+
+\begin{enumerate}
+    \item Let $S = \{v : v \in P\}$ be the set of selected nodes.
+    \item Let $NotSelected = N \setminus S$ be the set of non-selected nodes.
+    \item For $i = 1$ to $\min(\alpha, |S|, |NotSelected|)$:
+          \begin{enumerate}
+              \item Randomly select index $j$ from $\{0, \ldots, |P|-1\}$.
+              \item Randomly select node $u$ from $NotSelected$.
+              \item Set $P[j] \leftarrow u$.
+              \item Remove $u$ from $NotSelected$ and add $P[j]$ (old value) to $NotSelected$.
+          \end{enumerate}
+    \item Return solution with path $P$.
+\end{enumerate}
+
+\subsubsection{N2: Random 2-opt}
+
+\textbf{Input:} Current solution $x$ with path $P$, shaking intensity $\alpha$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Output:} Shaken solution $x'$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Procedure:}
+
+\begin{enumerate}
+    \item Let $n = |P|$.
+    \item For $i = 1$ to $\min(\alpha, \lfloor n/2 \rfloor)$:
+          \begin{enumerate}
+              \item Randomly select indices $i_1, i_2$ from $\{0, \ldots, n-1\}$ such that $i_1 < i_2$ and $i_2 - i_1 > 1$ and $i_2 - i_1 < n - 1$.
+              \item Apply 2-opt move: reverse the segment $P[i_1+1..i_2]$.
+          \end{enumerate}
+    \item Return solution with path $P$.
+\end{enumerate}
+
+\subsubsection{N3: Destroy-Repair}
+
+\textbf{Input:} Current solution $x$ with path $P$
+\vspace{0.2cm}
+
+\noindent \textbf{Output:} Shaken solution $x'$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Procedure:}
+
+\begin{enumerate}
+    \item \textbf{Destroy phase:}
+          \begin{enumerate}
+              \item Let $n = |P|$ and $k = \lceil |N|/2 \rceil$.
+              \item Randomly select destroy fraction $\beta \in [0.2, 0.3]$.
+              \item Let $numToRemove = \lceil n \cdot \beta \rceil$, ensuring $numToRemove < n$ and $numToRemove \geq 1$.
+              \item Randomly remove $numToRemove$ distinct nodes from $P$.
+          \end{enumerate}
+    \item \textbf{Repair phase (Nearest neighbour - any position):}
+          \begin{enumerate}
+              \item While $|P| < k$ and $NotSelected \neq \emptyset$:
+                    \begin{enumerate}
+                        \item For each node $u \in NotSelected$:
+                              \begin{enumerate}
+                                  \item Find position $pos$ in $P$ that minimizes the insertion cost
+                              \end{enumerate}
+                        \item Select node $u^*$ and position $pos^*$ with minimum insertion cost
+                        \item Insert $u^*$ into $P$ at position $pos^*$.
+                        \item Remove $u^*$ from $NotSelected$.
+                    \end{enumerate}
+          \end{enumerate}
+    \item Return solution with path $P$.
+\end{enumerate}
+
+\subsubsection{N4: Double-Bridge}
+
+\textbf{Input:} Current solution $x$ with path $P$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Output:} Shaken solution $x'$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Procedure:}
+
+\begin{enumerate}
+    \item Let $n = |P|$ and $minGap = \lfloor n/8 \rfloor$.
+    \item For $attempt = 1$ to $10$:
+          \begin{enumerate}
+              \item Randomly select four positions $i_1, i_2, i_3, i_4$ from $\{0, \ldots, n-1\}$.
+              \item Sort positions: $i_1 < i_2 < i_3 < i_4$.
+              \item Check if gaps are sufficient:
+                    \begin{itemize}
+                        \item $gap_1 = i_2 - i_1 \geq minGap$
+                        \item $gap_2 = i_3 - i_2 \geq minGap$
+                        \item $gap_3 = i_4 - i_3 \geq minGap$
+                        \item $gap_4 = n - i_4 + i_1 \geq minGap$
+                    \end{itemize}
+              \item If all gaps are sufficient:
+                    \begin{enumerate}
+                        \item Rearrange path: $P' = P[0..i_1] \rightarrow P[i_3+1..i_4] \rightarrow P[i_2+1..i_3] \rightarrow P[i_1+1..i_2] \rightarrow P[i_4+1..n]$.
+                        \item Return solution with path $P'$.
+                    \end{enumerate}
+          \end{enumerate}
+    \item If no valid positions found, fall back to N2 (Random 2-opt).
+\end{enumerate}
+
+\subsection{Steepest Descent Local Search}
+
+\textbf{Input:} Current solution $x$ with path $P$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Output:} Locally optimal solution $x'$
+
+\vspace{0.2cm}
+
+\noindent \textbf{Procedure:}
+
+\begin{enumerate}
+    \item \textbf{Repeat}:
+          \begin{enumerate}
+              \item Initialize $bestDelta \leftarrow 0$ and $bestMove \leftarrow \text{null}$.
+              \item \textbf{Intra-route moves (2-opt):}
+                    \begin{enumerate}
+                        \item For $i = 0$ to $|P|-1$:
+                              \begin{enumerate}
+                                  \item For $j = i+1$ to $|P|-1$:
+                                        \begin{enumerate}
+                                            \item Compute $\Delta_{2-opt}(i,j) = f(P \text{ after 2-opt}(i,j)) - f(P)$.
+                                            \item If $\Delta_{2-opt}(i,j) < bestDelta$:
+                                                  \begin{enumerate}
+                                                      \item $bestDelta \leftarrow \Delta_{2-opt}(i,j)$
+                                                      \item $bestMove \leftarrow$ ``apply 2-opt($P$, $i$, $j$)''
+                                                  \end{enumerate}
+                                        \end{enumerate}
+                              \end{enumerate}
+                    \end{enumerate}
+              \item \textbf{Inter-route moves (Node exchange):}
+                    \begin{enumerate}
+                        \item Let $NotSelected = N \setminus \{v : v \in P\}$.
+                        \item For $i = 0$ to $|P|-1$:
+                              \begin{enumerate}
+                                  \item For each $u \in NotSelected$:
+                                        \begin{enumerate}
+                                            \item Compute $\Delta_{exchg}(i,u) = f(P \text{ with } P[i] \leftarrow u) - f(P)$.
+                                            \item If $\Delta_{exchg}(i,u) < bestDelta$:
+                                                  \begin{enumerate}
+                                                      \item $bestDelta \leftarrow \Delta_{exchg}(i,u)$
+                                                      \item $bestMove \leftarrow$ ``exchange $P[i]$ with $u$''
+                                                  \end{enumerate}
+                                        \end{enumerate}
+                              \end{enumerate}
+                    \end{enumerate}
+              \item If $bestDelta < 0$:
+                    \begin{enumerate}
+                        \item Apply $bestMove$ to $P$.
+                    \end{enumerate}
+              \item Else:
+                    \begin{enumerate}
+                        \item Break loop \quad \textit{(No improving move found)}
+                    \end{enumerate}
+          \end{enumerate}
+    \item Return solution with path $P$.
+\end{enumerate}
+
+\section{Results of a computational experiment}
+
+To evaluate the performance of Variable Neighborhood Search, we tested two different VNS variants on two problem instances. Each variant uses a different neighborhood change strategy:
+
+\begin{enumerate}
+    \item \textbf{VNS\_Sequential\_LS}: Sequential neighborhood change with local search
+    \item \textbf{VNS\_Random\_LS}: Random neighborhood selection with local search
+\end{enumerate}
+
+Each configuration was executed 20 times per instance. The time limits were set based on the average running time of Multi-Start Local Search from the previous assignment: 3276.57 ms for Instance A and 2342.11 ms for Instance B.
+
+The results are reported in the avg(min, max) format.
+
+\begin{table}[h]
+    \centering
+    \makebox[\textwidth][c]{%
+        \begingroup
+        \renewcommand{\arraystretch}{1.3}%
+        \begin{tabular}{lcc}
+            \toprule
+            Algorithm                        & Instance A: $avg(min,max)$ & Instance B: $avg(min,max)$ \\
+            \midrule
+            Nearest Neighbour (Any Position) & $73172.17(71179,75450)$    & $45870.25(44417,53438)$    \\
+            Steepest Local Search            & $73970.11(71044,77924)$    & $48306.32(45537,51303)$    \\
+            MSLS                             & $71414.40 (70887, 71921)$  & $45859.00 (45400, 46271)$  \\
+            ILS                              & $69566.45 (69212, 70171)$  & $44103.25 (43693, 45131)$  \\
+            LNS + LS                         & $69240.65 (69107, 69422)$  & $43648.00 (43497, 43801)$  \\
+            LNS - LS                         & $70060.85 (69612, 70611)$  & $44214.40 (43874, 45126)$  \\
+            Hybrid evolutionary algorithms:  &                            &                            \\
+            Operator 1 + LS                  & $69186.90 (69107, 69318)$  & $43839.45 (43536, 44535)$  \\
+            Operator 1 - LS                  & $71957.50 (71098, 72678)$  & $46412.85 (45611, 47335)$  \\
+            Operator 2 + LS                  & $69890.70 (69516, 70377)$  & $44156.95 (43620, 44841)$  \\
+            Operator 2 - LS                  & $70126.90 (69599, 70635)$  & $44289.15 (43630, 44839)$  \\
+            Variable Neighborhood Search:    &                            &                            \\
+            VNS Sequential + LS              & $69364.55 (69095, 69726)$  & $44042.00 (43503, 44934)$  \\
+            VNS Random + LS                  & $69348.60 (69095, 69903)$  & $43961.40 (43467, 44963)$  \\
+            \bottomrule
+        \end{tabular}
+        \endgroup
+    }%
+    \label{tab:results_values}
+    \caption{The results of VNS variants for both instances (20 runs per method).}
+\end{table}
+\begin{table}[h]
+    \centering
+    \makebox[\textwidth][c]{%
+        \begingroup
+        \renewcommand{\arraystretch}{1.3}%
+        \begin{tabular}{lcc|cc}
+            \toprule
+            \multirow{2}{*}{Algorithm}
+                                                & \multicolumn{2}{c|}{Instance A}
+                                                & \multicolumn{2}{c}{Instance B}                                          \\
+                                                & $t_{avg}$ [ms]                  & Avg iterations
+                                                & $t_{avg}$ [ms]                  & Avg. LS iterations                    \\
+            \midrule
+            Nearest Neighbour (Any Position)    & 2.57                            & 200                & 2.37    & 200    \\
+            Steepest Local Search               & 15.82                           & 200                & 17.28   & 200    \\
+            MSLS                                & 3276.57                         & 200                & 2342.11 & 200    \\
+            ILS                                 & 3276.57                         & 8909.5             & 2342.11 & 7438.6 \\
+            LNS with LS after destroy-repair    & 3276.57                         & 1440.3             & 2342.11 & 1158.7 \\
+            LNS without LS after destroy-repair & 3276.57                         & 2088.3             & 2342.11 & 1780.6 \\
+            Operator 1 + LS                     & 3276.57                         & -                  & 2342.11 & -      \\
+            Operator 1 - LS                     & 3276.57                         & -                  & 2342.11 & -      \\
+            Operator 2 + LS                     & 3276.57                         & -                  & 2342.11 & -      \\
+            Operator 2 - LS                     & 3276.57                         & -                  & 2342.11 & -      \\
+            VNS Sequential + LS                 & 3277.57                         & 769.8              & 2342.11 & 452.2  \\
+            VNS Random + LS                     & 3277.57                         & 874.6              & 2342.11 & 288.4  \\
+            \bottomrule
+        \end{tabular}
+        \endgroup
+    }%
+    \label{tab:timing_iterations}
+    \caption{Timing and iteration statistics for all algorithms.}
+\end{table}
+
+\pagebreak
+
+\section{Charts -- Best Solutions Visualization}
+
+\subsection{Charts for instance A}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{VNS_Sequential_LS_Instance_A_0.png}
+    \caption{VNS Sequential LS for Instance A (Best value: 69095)}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{VNS_Random_LS_Instance_A_2.png}
+    \caption{VNS Random LS for Instance A (Best value: 69100)}
+\end{figure}
+
+\subsection{Charts for instance B}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{VNS_Sequential_LS_Instance_B_0.png}
+    \caption{VNS Sequential LS for Instance B (Best value: 43503)}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{VNS_Random_LS_Instance_B_2.png}
+    \caption{VNS Random LS for Instance B (Best value: 43467)}
+\end{figure}
+
+
+\section{Conclusions}
+
+\noindent \textbf{Effectiveness of VNS}: The experimental evaluation demonstrates that Variable Neighborhood Search is an effective metaheuristic for solving the Travelling Salesperson Problem with node costs. Both VNS variants (Sequential, Random) found high-quality solutions, validating the approach.
+
+\noindent \textbf{Systematic Exploration}: VNS successfully combines systematic exploration with local search intensification. The systematic exploration of multiple neighborhoods allows the algorithm to escape local optima more effectively than simple local search methods while maintaining reasonable computational efficiency.
+
+\noindent \textbf{Comparison with Previous Methods}: Compared to Multi-Start Local Search, VNS provides more structured exploration of the solution space through its systematic neighborhood change mechanism, rather than relying solely on random restarts. This leads to better exploration-exploitation balance.
+
+\bigbreak
+
+\noindent The source code can be found under this link: \\ \url{https://github.com/czajkowskis/evolutionary_computation/tree/main/10_lab/variable_neighborhood_search}
+
+\end{document}

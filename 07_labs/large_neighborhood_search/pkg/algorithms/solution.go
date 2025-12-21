@@ -1,7 +1,8 @@
 package algorithms
 
-// Solution represents a solution to the problem, including the path and its objective value.
-type Solution struct {
-	Path      []int
-	Objective int
-}
+import (
+	"github.com/czajkowskis/evolutionary_computation/pkg/common/algorithms"
+)
+
+// Solution is an alias for the common Solution type
+type Solution = algorithms.Solution
